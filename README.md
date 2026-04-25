@@ -4,6 +4,31 @@ Unified CLI for iOS device control over WebDriverAgent (WDA). Built in Swift wit
 
 idb talks to WDA's HTTP API for touch, navigation, screenshots, UI inspection, and app management. An optional FastTouch binary protocol provides low-latency input for screen mirroring.
 
+## Quick start
+
+```bash
+# Build
+swift build -c release
+
+# Set up config and point to your WDA checkout
+idb config init
+idb config set wdaDir /path/to/WebDriverAgent
+
+# Enroll a device (auto-detects if one USB device connected)
+idb devices add phone
+
+# Build WDA and start it
+idb wda build phone --start
+
+# Verify everything works
+idb doctor
+
+# Use it
+idb tap -d phone 200 400
+idb screenshot -d phone screen.png
+idb mirror phone
+```
+
 ## Build
 
 Requires macOS 13+ and Swift 5.9+.
@@ -12,7 +37,7 @@ Requires macOS 13+ and Swift 5.9+.
 swift build -c release
 ```
 
-The binary lands at `.build/release/idb`. Copy it to a directory in your PATH:
+Optionally copy to PATH:
 
 ```bash
 cp .build/release/idb /usr/local/bin/
@@ -35,8 +60,8 @@ idb config show
 Override individual values:
 
 ```bash
-idb config set wda_dir /path/to/WebDriverAgent
-idb config set team_id ABCDE12345
+idb config set wdaDir /path/to/WebDriverAgent
+idb config set registryPath ~/.config/idb/devices.json
 ```
 
 ### 2. Enroll devices
@@ -169,6 +194,8 @@ idb screenshot [-d dev] [output.png]
 | `idb app launch <bundleId> [-d dev]` | Launch an app |
 | `idb app kill <bundleId> [-d dev]` | Terminate an app |
 | `idb app active [-d dev]` | Show the foreground app |
+| `idb app install <path> [-d dev]` | Install .ipa or .app |
+| `idb app list [-d dev]` | List installed apps |
 
 Examples:
 
@@ -176,6 +203,8 @@ Examples:
 idb app launch com.apple.Preferences
 idb app kill com.apple.mobilesafari -d myphone
 idb app active
+idb app install ~/Downloads/MyApp.ipa -d myphone
+idb app list
 ```
 
 ### Screen mirroring
@@ -200,7 +229,7 @@ Tails device syslog via pymobiledevice3.
 idb doctor
 ```
 
-Checks tools (xcodebuild, pymobiledevice3), WDA status, signing, FastTouch availability, and disk space.
+Checks tools, WDA status, signing, FastTouch, config paths, cert expiry, and disk space.
 
 ### Configuration
 
