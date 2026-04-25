@@ -54,38 +54,49 @@ struct WDA: ParsableCommand {
         @Flag(help: "Clean build (remove derived data first)")
         var clean = false
 
+        @Option(help: "WDA source directory")
+        var wdaDir: String = "/Users/Shared/projects/device-tools/WebDriverAgent"
+
+        @Option(help: "Derived data path (default: /tmp/wda-build-<name>)")
+        var derivedData: String?
+
+        @Flag(help: "Start WDA after building")
+        var start = false
+
         func run() throws {
             let (name, dev) = try DeviceRegistry.resolve(device)
+            let ddPath = derivedData ?? "/tmp/wda-build-\(name)"
 
             if clean {
                 print("Cleaning derived data...")
-                shell("rm -rf /tmp/wda-build-\(name)")
+                shell("rm -rf \(ddPath)")
             }
 
-            print("Building WDA fork...")
+            print("Building WDA...")
             let buildResult = shell("""
-                ~/.claude/bin/nosandbox bash -c "cd /Users/Shared/projects/device-tools/WebDriverAgent && \
+                cd \(wdaDir) && \
                 xcodebuild build-for-testing \
                     -project WebDriverAgent.xcodeproj \
                     -scheme WebDriverAgentRunner \
                     -destination 'generic/platform=iOS' \
                     -allowProvisioningUpdates \
-                    -derivedDataPath /tmp/wda-build-\(name)"
+                    -derivedDataPath \(ddPath)
                 """, timeout: 300)
 
             if buildResult.code != 0 {
                 print("BUILD FAILED")
-                // Extract errors
-                for line in buildResult.out.split(separator: "\n") where line.contains("error:") {
+                for line in (buildResult.out + "\n" + buildResult.err).split(separator: "\n") where line.contains("error:") {
                     print("  \(line)")
                 }
                 throw ExitCode.failure
             }
             print("BUILD SUCCEEDED")
 
-            print("Starting WDA on \(name)...")
-            let startResult = shell("bash ~/.claude/daemons/wda/wda-ctl.sh start \(name)", timeout: 60)
-            print(startResult.out)
+            if start {
+                print("Starting WDA on \(name)...")
+                let startResult = shell("bash ~/.claude/daemons/wda/wda-ctl.sh start \(name)", timeout: 60)
+                print(startResult.out)
+            }
         }
     }
 
