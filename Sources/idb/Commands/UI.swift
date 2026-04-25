@@ -23,80 +23,64 @@ struct UI: ParsableCommand {
     }
 
     private func printCompact(_ xml: String) {
-        // Parse XML and extract tappable elements
-        guard let data = xml.data(using: .utf8) else {
-            print(xml)
-            return
-        }
+        // Regex-based extraction — WDA XML has unescaped quotes that break NSXMLParser
+        let containers = Set(["Application", "Window", "Other", "ScrollView", "Table", "Cell"])
+        var elements: [(type: String, label: String, x: Double, y: Double)]  = []
 
-        let parser = UIElementParser(data: data)
-        let elements = parser.parse()
+        for line in xml.components(separatedBy: "\n") {
+            guard line.contains("visible=\"true\"") else { continue }
+            guard line.contains("accessible=\"true\"") || line.contains("enabled=\"true\"") else { continue }
+
+            // Extract type
+            guard let typeMatch = line.range(of: "XCUIElementType"),
+                  let spaceAfter = line[typeMatch.upperBound...].firstIndex(of: " ") else { continue }
+            let typeName = String(line[typeMatch.upperBound..<spaceAfter])
+            if containers.contains(typeName) { continue }
+
+            // Extract label or name
+            let label = extractAttr(line, "label") ?? extractAttr(line, "name") ?? ""
+            if label.isEmpty { continue }
+
+            // Extract coords
+            guard let x = extractAttr(line, "x").flatMap(Double.init),
+                  let y = extractAttr(line, "y").flatMap(Double.init),
+                  let w = extractAttr(line, "width").flatMap(Double.init),
+                  let h = extractAttr(line, "height").flatMap(Double.init) else { continue }
+
+            elements.append((typeName, label, x + w/2, y + h/2))
+        }
 
         if elements.isEmpty {
             print("(no interactive elements found)")
             return
         }
 
-        print(String(format: "%-8s %-30s %-15s %s", "TYPE", "LABEL", "COORDS", "ENABLED"))
-        print(String(repeating: "-", count: 70))
+        let fmt = { (t: String, l: String, c: String, e: String) in
+            "\(t.padding(toLength: 12, withPad: " ", startingAt: 0))\(l.padding(toLength: 32, withPad: " ", startingAt: 0))\(c)"
+        }
+        print(fmt("TYPE", "LABEL", "COORDS", ""))
+        print(String(repeating: "-", count: 60))
         for el in elements {
-            print(String(format: "%-8s %-30s (%3.0f,%3.0f)       %s",
-                         el.type, String(el.label.prefix(30)),
-                         el.x, el.y, el.enabled ? "yes" : "no"))
+            let coords = "(\(Int(el.x)),\(Int(el.y)))"
+            print(fmt(el.type, String(el.label.prefix(30)), coords, ""))
         }
     }
-}
 
-// Simple XML parser for XCUI source
-private struct UIElement {
-    let type: String
-    let label: String
-    let x: Double
-    let y: Double
-    let enabled: Bool
-}
-
-private class UIElementParser: NSObject, XMLParserDelegate {
-    let data: Data
-    var elements: [UIElement] = []
-
-    init(data: Data) {
-        self.data = data
-    }
-
-    func parse() -> [UIElement] {
-        let parser = XMLParser(data: data)
-        parser.delegate = self
-        parser.parse()
-        return elements
-    }
-
-    func parser(_ parser: XMLParser, didStartElement elementName: String,
-                namespaceURI: String?, qualifiedName: String?,
-                attributes: [String: String]) {
-        // Skip containers
-        let containers = ["XCUIElementTypeApplication", "XCUIElementTypeWindow",
-                          "XCUIElementTypeOther", "XCUIElementTypeScrollView",
-                          "XCUIElementTypeTable", "XCUIElementTypeCell"]
-        let shortName = elementName.replacingOccurrences(of: "XCUIElementType", with: "")
-        if containers.contains(elementName) { return }
-
-        let label = attributes["label"] ?? attributes["name"] ?? ""
-        let enabled = attributes["enabled"] == "true"
-        let visible = attributes["visible"] == "true"
-
-        guard visible, !label.isEmpty || enabled else { return }
-
-        // Parse frame "{{x, y}, {w, h}}"
-        if let frame = attributes["frame"] ?? attributes["rect"] {
-            let nums = frame.components(separatedBy: CharacterSet(charactersIn: "0123456789.").inverted)
-                .filter { !$0.isEmpty }
-                .compactMap { Double($0) }
-            if nums.count >= 4 {
-                let cx = nums[0] + nums[2] / 2
-                let cy = nums[1] + nums[3] / 2
-                elements.append(UIElement(type: shortName, label: label, x: cx, y: cy, enabled: enabled))
+    /// Extract an XML attribute value — handles unescaped quotes by finding the last matching pattern
+    private func extractAttr(_ line: String, _ attr: String) -> String? {
+        let pattern = attr + "=\""
+        guard let start = line.range(of: pattern)?.upperBound else { return nil }
+        // Find the next quote that's followed by a space or > or /
+        var i = start
+        while i < line.endIndex {
+            if line[i] == "\"" {
+                let next = line.index(after: i)
+                if next >= line.endIndex || " >/".contains(line[next]) {
+                    return String(line[start..<i])
+                }
             }
+            i = line.index(after: i)
         }
+        return nil
     }
 }

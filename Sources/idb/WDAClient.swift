@@ -60,7 +60,9 @@ class WDAClient {
     func source() throws -> String {
         let data = try syncGET("/source")
         let json = try JSONSerialization.jsonObject(with: data) as! [String: Any]
-        return json["value"] as? String ?? ""
+        let raw = json["value"] as? String ?? ""
+        // WDA returns XML with escaped forward slashes — unescape them
+        return raw.replacingOccurrences(of: "\\/", with: "/")
     }
 
     func screenshot() throws -> Data {
