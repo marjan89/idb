@@ -17,10 +17,13 @@ struct Devices: ParsableCommand {
                 print("No devices enrolled. Add devices to \(DeviceRegistry.path)")
                 return
             }
-            print(String(format: "%-15s %-35s %-6s %s", "NAME", "MODEL", "PORT", "UDID"))
+            let fmt = { (n: String, m: String, p: String, u: String) in
+                "\(n.padding(toLength: 15, withPad: " ", startingAt: 0))\(m.padding(toLength: 35, withPad: " ", startingAt: 0))\(p.padding(toLength: 8, withPad: " ", startingAt: 0))\(u)"
+            }
+            print(fmt("NAME", "MODEL", "PORT", "UDID"))
             print(String(repeating: "-", count: 80))
             for (name, dev) in devices.sorted(by: { $0.value.port < $1.value.port }) {
-                print(String(format: "%-15s %-35s %-6d %s", name, dev.model, dev.port, dev.udid))
+                print(fmt(name, dev.model, "\(dev.port)", dev.udid))
             }
         }
     }
@@ -45,8 +48,9 @@ struct Devices: ParsableCommand {
             for (name, dev) in targets {
                 print("== \(name) (\(dev.udid)) port=\(dev.port) ==")
 
-                // Check WDA HTTP
-                let wdaResult = shell("curl -s --connect-timeout 3 http://localhost:\(dev.port)/status")
+                // Check WDA HTTP — try WiFi IP from wda log, fall back to localhost
+                let ip = extractHostFromLog(name) ?? "localhost"
+                let wdaResult = shell("curl -s --connect-timeout 3 http://\(ip):\(dev.port)/status")
                 if wdaResult.code == 0, wdaResult.out.contains("ready") {
                     // Extract IP
                     if let data = wdaResult.out.data(using: .utf8),
@@ -63,7 +67,7 @@ struct Devices: ParsableCommand {
                 }
 
                 // Check FastTouch
-                let ftResult = shell("python3 -c \"import socket; s=socket.socket(); s.settimeout(2); s.connect(('localhost',\(dev.port + 1100))); s.close(); print('ok')\" 2>/dev/null")
+                let ftResult = shell("python3 -c \"import socket; s=socket.socket(); s.settimeout(2); s.connect(('\(ip)',\(dev.port + 1100))); s.close(); print('ok')\" 2>/dev/null")
                 if ftResult.out == "ok" {
                     print("  FastTouch:  READY on port \(dev.port + 1100)")
                 } else {
@@ -73,4 +77,16 @@ struct Devices: ParsableCommand {
             }
         }
     }
+}
+
+/// Extract device IP from WDA log
+func extractHostFromLog(_ deviceName: String) -> String? {
+    let logPath = "/tmp/wda-\(deviceName).log"
+    guard let log = try? String(contentsOfFile: logPath, encoding: .utf8) else { return nil }
+    // Look for "ServerURLHere->http://IP:PORT<-ServerURLHere"
+    guard let range = log.range(of: "ServerURLHere->http://"),
+          let endRange = log.range(of: "<-ServerURLHere", range: range.upperBound..<log.endIndex) else { return nil }
+    let url = String(log[range.upperBound..<endRange.lowerBound])
+    // Extract host from "IP:PORT"
+    return url.components(separatedBy: ":").first
 }

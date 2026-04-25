@@ -10,8 +10,8 @@ struct UI: ParsableCommand {
     var raw = false
 
     func run() throws {
-        let (_, dev) = try DeviceRegistry.resolve(deviceOpt.device)
-        let wda = try connectWDA(dev)
+        let (name, dev) = try DeviceRegistry.resolve(deviceOpt.device)
+        let wda = try connectWDA(dev, name: name)
         let xml = try wda.source()
 
         if raw {

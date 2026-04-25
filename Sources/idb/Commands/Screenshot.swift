@@ -10,8 +10,8 @@ struct Screenshot: ParsableCommand {
     var output: String = "screenshot.png"
 
     func run() throws {
-        let (_, dev) = try DeviceRegistry.resolve(deviceOpt.device)
-        let wda = try connectWDA(dev)
+        let (name, dev) = try DeviceRegistry.resolve(deviceOpt.device)
+        let wda = try connectWDA(dev, name: name)
         let data = try wda.screenshot()
         try data.write(to: URL(fileURLWithPath: output))
         print("Saved \(data.count) bytes to \(output)")

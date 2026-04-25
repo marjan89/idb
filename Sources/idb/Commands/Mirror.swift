@@ -12,7 +12,7 @@ struct Mirror_: ParsableCommand {
 
     func run() throws {
         let (name, dev) = try DeviceRegistry.resolve(device)
-        let host = try extractHost(dev)
+        let host = resolveHost(name, dev)
 
         let mirrorPath = "/Users/Shared/projects/device-tools/ios-mirror/.build/release/ios-mirror"
         guard FileManager.default.fileExists(atPath: mirrorPath) else {
