@@ -83,7 +83,7 @@ extension Devices {
             )
 
             devices[name] = device
-            try saveRegistry(devices)
+            try DeviceRegistry.save(devices)
 
             print("Enrolled '\(name)':")
             print("  Model: \(device.model)")
@@ -105,7 +105,7 @@ extension Devices {
                 print("Device '\(name)' not found.")
                 throw ExitCode.failure
             }
-            try saveRegistry(devices)
+            try DeviceRegistry.save(devices)
             print("Removed '\(name)'")
         }
     }
@@ -197,9 +197,3 @@ private func deviceInfo(udid: String) -> DeviceInfo {
     return DeviceInfo(model: "Unknown", ios: "unknown")
 }
 
-private func saveRegistry(_ devices: [String: Device]) throws {
-    let encoder = JSONEncoder()
-    encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
-    let data = try encoder.encode(devices)
-    try data.write(to: URL(fileURLWithPath: DeviceRegistry.path))
-}

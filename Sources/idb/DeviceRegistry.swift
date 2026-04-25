@@ -9,6 +9,8 @@ struct Device: Codable {
     let signingIdentity: String
     let bundleId: String
     let port: Int
+    var mjpegPort: Int?
+    var fastTouchPort: Int?
     let enrolled: String
 
     enum CodingKeys: String, CodingKey {
@@ -16,7 +18,15 @@ struct Device: Codable {
         case teamId = "team_id"
         case signingIdentity = "signing_identity"
         case bundleId = "bundle_id"
+        case mjpegPort = "mjpeg_port"
+        case fastTouchPort = "fast_touch_port"
     }
+
+    /// Resolved MJPEG port — device-specific or global default
+    var resolvedMjpegPort: Int { mjpegPort ?? IDBConfig.load().defaultMjpegPort }
+
+    /// Resolved FastTouch port — device-specific or global default
+    var resolvedFastTouchPort: Int { fastTouchPort ?? IDBConfig.load().defaultFastTouchPort }
 }
 
 /// Reads and manages the device registry (devices.json)
@@ -26,6 +36,13 @@ struct DeviceRegistry {
     static func load() throws -> [String: Device] {
         let data = try Data(contentsOf: URL(fileURLWithPath: path))
         return try JSONDecoder().decode([String: Device].self, from: data)
+    }
+
+    static func save(_ devices: [String: Device]) throws {
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+        let data = try encoder.encode(devices)
+        try data.write(to: URL(fileURLWithPath: path))
     }
 
     static func resolve(_ name: String?) throws -> (name: String, device: Device) {
@@ -38,45 +55,11 @@ struct DeviceRegistry {
             return (name, device)
         }
 
-        // Auto-select if only one device
         if devices.count == 1, let (name, device) = devices.first {
             return (name, device)
         }
 
         throw IDBError.noDeviceSpecified(available: Array(devices.keys).sorted())
-    }
-
-    /// Get WDA base URL for a device
-    static func wdaURL(for device: Device) throws -> String {
-        // Try to get the device's WiFi IP from WDA status
-        let url = URL(string: "http://localhost:\(device.port)/status")!
-        var request = URLRequest(url: url)
-        request.timeoutInterval = 3
-        let sem = DispatchSemaphore(value: 0)
-        var result: String?
-        URLSession.shared.dataTask(with: request) { data, _, _ in
-            if let data = data,
-               let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-               let value = json["value"] as? [String: Any],
-               let ios = value["ios"] as? [String: Any],
-               let ip = ios["ip"] as? String {
-                result = "http://\(ip):\(device.port)"
-            }
-            sem.signal()
-        }.resume()
-        sem.wait()
-
-        if let result = result { return result }
-
-        // Fallback: try the device IP from wda log
-        let logPath = "/tmp/wda-\(device.udid.prefix(8)).log"
-        if let log = try? String(contentsOfFile: logPath),
-           let range = log.range(of: "ServerURLHere->"),
-           let endRange = log.range(of: "<-ServerURLHere", range: range.upperBound..<log.endIndex) {
-            return String(log[range.upperBound..<endRange.lowerBound])
-        }
-
-        return "http://localhost:\(device.port)"
     }
 }
 

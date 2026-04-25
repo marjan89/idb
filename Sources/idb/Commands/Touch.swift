@@ -27,7 +27,7 @@ struct Tap: ParsableCommand {
         if !deviceOpt.http {
             let ft = FastTouchClient()
             let host = resolveHost(name, dev)
-            if ft.connect(host: host, port: UInt16(9200)) {
+            if ft.connect(host: host, port: UInt16(dev.resolvedFastTouchPort)) {
                 if ft.tap(Float(x), Float(y)) {
                     return
                 }
@@ -67,7 +67,7 @@ struct Swipe: ParsableCommand {
         if !deviceOpt.http && duration <= 0.2 {
             let ft = FastTouchClient()
             let host = resolveHost(name, dev)
-            if ft.connect(host: host, port: UInt16(9200)) {
+            if ft.connect(host: host, port: UInt16(dev.resolvedFastTouchPort)) {
                 if ft.swipe(fromX: Float(fromX), fromY: Float(fromY),
                             toX: Float(toX), toY: Float(toY), duration: Float(duration)) {
                     return

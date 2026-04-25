@@ -67,9 +67,10 @@ struct Devices: ParsableCommand {
                 }
 
                 // Check FastTouch
-                let ftResult = shell("python3 -c \"import socket; s=socket.socket(); s.settimeout(2); s.connect(('\(ip)',\(9200))); s.close(); print('ok')\" 2>/dev/null")
+                let ftPort = dev.resolvedFastTouchPort
+                let ftResult = shell("python3 -c \"import socket; s=socket.socket(); s.settimeout(2); s.connect(('\(ip)',\(ftPort))); s.close(); print('ok')\" 2>/dev/null")
                 if ftResult.out == "ok" {
-                    print("  FastTouch:  READY on port \(9200)")
+                    print("  FastTouch:  READY on port \(ftPort)")
                 } else {
                     print("  FastTouch:  NOT AVAILABLE")
                 }

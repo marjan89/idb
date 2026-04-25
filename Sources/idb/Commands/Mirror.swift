@@ -11,11 +11,11 @@ struct Mirror_: ParsableCommand {
     @Option(name: .long, help: "Window scale factor")
     var scale: Double = 0.5
 
-    @Option(name: .long, help: "MJPEG stream port")
-    var mjpegPort: Int = IDBConfig.load().defaultMjpegPort
+    @Option(name: .long, help: "MJPEG stream port (overrides device/global default)")
+    var mjpegPort: Int?
 
-    @Option(name: .long, help: "FastTouch binary port")
-    var touchPort: Int = IDBConfig.load().defaultFastTouchPort
+    @Option(name: .long, help: "FastTouch binary port (overrides device/global default)")
+    var touchPort: Int?
 
     func run() throws {
         // Resolve device — list available if none specified
@@ -60,7 +60,7 @@ struct Mirror_: ParsableCommand {
 
         // Connect FastTouch
         let ft = FastTouchClient()
-        let ftPort = UInt16(touchPort)
+        let ftPort = UInt16(touchPort ?? dev.resolvedFastTouchPort)
         if ft.connect(host: host, port: ftPort) {
             fputs("[mirror] FastTouch connected (\(host):\(ftPort))\n", stderr)
         } else {
@@ -70,7 +70,8 @@ struct Mirror_: ParsableCommand {
         let bridge = MirrorWDABridge(httpClient: wda, fastTouch: ft.connected ? ft : nil)
 
         // Start MJPEG
-        let mjpegURL = URL(string: "http://\(host):\(mjpegPort)")!
+        let resolvedMjpegPort = mjpegPort ?? dev.resolvedMjpegPort
+        let mjpegURL = URL(string: "http://\(host):\(resolvedMjpegPort)")!
         let stream = MJPEGStream(url: mjpegURL)
         let firstFrameSem = DispatchSemaphore(value: 0)
         var gotFirst = false
