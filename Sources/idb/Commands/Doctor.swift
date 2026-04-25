@@ -77,6 +77,67 @@ struct Doctor: ParsableCommand {
             }
         } catch {}
 
+        heading("Config Paths")
+        let config = IDBConfig.load()
+        let wdaDir = NSString(string: config.wdaDir).expandingTildeInPath
+        let registryPath = NSString(string: config.registryPath).expandingTildeInPath
+        if FileManager.default.fileExists(atPath: wdaDir) {
+            pass("wdaDir: \(wdaDir)")
+        } else {
+            fail("wdaDir not found: \(wdaDir)")
+            issues += 1
+        }
+        if FileManager.default.fileExists(atPath: registryPath) {
+            pass("registryPath: \(registryPath)")
+        } else {
+            fail("registryPath not found: \(registryPath)")
+            issues += 1
+        }
+
+        heading("Cert Expiry")
+        do {
+            let devices = try DeviceRegistry.load()
+            for (name, _) in devices.sorted(by: { $0.value.port < $1.value.port }) {
+                let logPath = config.wdaLogPath(name)
+                guard let log = try? String(contentsOfFile: logPath, encoding: .utf8) else {
+                    warn("\(name): No WDA log found at \(logPath)")
+                    continue
+                }
+                // Look for "Built at" timestamp in the log
+                // Find the LAST "Built at" (most recent build)
+                if let range = log.range(of: "Built at ", options: .backwards) {
+                    let rest = log[range.upperBound...]
+                    let dateLine = rest.prefix(while: { !$0.isNewline })
+                    // Take only first 20 chars — "Apr 25 2026 03:07:47"
+                    let dateStr = String(dateLine.prefix(20)).trimmingCharacters(in: .whitespaces)
+                    // Try common date formats
+                    let formatter = DateFormatter()
+                    formatter.locale = Locale(identifier: "en_US_POSIX")
+                    var builtDate: Date?
+                    for fmt in ["MMM dd yyyy HH:mm:ss", "MMM d yyyy HH:mm:ss", "MMM d, yyyy HH:mm:ss", "yyyy-MM-dd HH:mm:ss"] {
+                        formatter.dateFormat = fmt
+                        if let d = formatter.date(from: dateStr) {
+                            builtDate = d
+                            break
+                        }
+                    }
+                    if let builtDate = builtDate {
+                        let age = Date().timeIntervalSince(builtDate)
+                        let days = Int(age / 86400)
+                        if days >= 5 {
+                            warn("\(name): WDA built \(days) days ago — free dev cert expires at 7 days. Rebuild soon.")
+                        } else {
+                            pass("\(name): WDA built \(days) day(s) ago")
+                        }
+                    } else {
+                        warn("\(name): Could not parse 'Built at' date: \(dateStr)")
+                    }
+                } else {
+                    warn("\(name): No 'Built at' timestamp in WDA log")
+                }
+            }
+        } catch {}
+
         heading("Disk Space")
         let dfResult = shell("df -h / | tail -1")
         let parts = dfResult.out.split(separator: " ").map(String.init)

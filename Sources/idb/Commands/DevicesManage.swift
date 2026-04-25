@@ -36,12 +36,14 @@ extension Devices {
                 let connected = discoverDevices()
                 let unenrolled = connected.filter { conn in
                     !devices.values.contains(where: { $0.udid == conn.udid })
+                    && !devices.keys.contains(conn.name)
                 }
                 if unenrolled.isEmpty {
                     print("No unenrolled devices found. Connect a device or specify --udid.")
                     print("\nConnected devices:")
                     for d in connected {
                         let enrolled = devices.values.contains(where: { $0.udid == d.udid })
+                            || devices.keys.contains(d.name)
                         print("  \(d.udid)  \(d.model)  \(enrolled ? "(enrolled)" : "")")
                     }
                     throw ExitCode.failure
@@ -128,7 +130,9 @@ extension Devices {
             print(fmt("UDID", "MODEL", "STATUS"))
             print(String(repeating: "-", count: 75))
             for d in connected {
-                if let enrolled = devices.first(where: { $0.value.udid == d.udid }) {
+                // Match by UDID first, then by device name (handles CoreDevice UUID mismatch)
+                if let enrolled = devices.first(where: { $0.value.udid == d.udid })
+                    ?? devices.first(where: { $0.key == d.name }) {
                     print(fmt(d.udid, d.model, "enrolled as '\(enrolled.key)'"))
                 } else {
                     print(fmt(d.udid, d.model, "available"))
@@ -142,6 +146,8 @@ extension Devices {
 
 private struct ConnectedDevice {
     let udid: String
+    let coreDeviceUUID: String
+    let name: String
     let model: String
     let state: String
 }
@@ -151,9 +157,57 @@ private struct DeviceInfo {
     let ios: String
 }
 
+/// Try to get real UDIDs from pymobiledevice3 usbmux list.
+/// Returns a dictionary mapping device name -> UDID.
+private func pymobiledevice3UDIDs() -> [String: String] {
+    let result = shell("pymobiledevice3 usbmux list --no-color 2>/dev/null")
+    guard result.code == 0, !result.out.isEmpty else { return [:] }
+
+    // Output is JSON array of device objects with "UniqueDeviceID" and "DeviceName"
+    guard let data = result.out.data(using: .utf8),
+          let arr = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]] else {
+        return [:]
+    }
+
+    var mapping: [String: String] = [:]
+    for entry in arr {
+        if let udid = entry["UniqueDeviceID"] as? String,
+           let name = entry["DeviceName"] as? String {
+            mapping[name] = udid
+        }
+    }
+    return mapping
+}
+
+/// Resolve the CoreDevice UUID for a device name from devicectl output.
+func coreDeviceUUID(forDeviceName name: String) -> String? {
+    let result = shell("xcrun devicectl list devices 2>/dev/null")
+    for line in result.out.components(separatedBy: "\n") {
+        guard line.contains("connected") || line.contains("unavailable") else { continue }
+        guard !line.contains("---") else { continue }
+
+        let parts = line.split(separator: " ", omittingEmptySubsequences: true).map(String.init)
+        guard let uuidIdx = parts.firstIndex(where: { $0.count == 36 && $0.contains("-") }) else { continue }
+
+        // Device name is everything before the hostname (second-to-last before UUID)
+        // Format: Name [Hostname] Identifier State Model...
+        // Name can be multi-word; hostname is the part just before the UUID
+        let nameParts = parts.prefix(uuidIdx - 1)  // everything before hostname
+        let deviceName = nameParts.joined(separator: " ")
+
+        if deviceName == name {
+            return parts[uuidIdx]
+        }
+    }
+    return nil
+}
+
 private func discoverDevices() -> [ConnectedDevice] {
     let result = shell("xcrun devicectl list devices 2>/dev/null")
     var devices: [ConnectedDevice] = []
+
+    // Get real UDIDs from pymobiledevice3 (may be empty if unavailable)
+    let udidMap = pymobiledevice3UDIDs()
 
     for line in result.out.components(separatedBy: "\n") {
         // Skip header lines
@@ -165,16 +219,27 @@ private func discoverDevices() -> [ConnectedDevice] {
         // Find the UUID (36-char with dashes)
         guard let uuidIdx = parts.firstIndex(where: { $0.count == 36 && $0.contains("-") }) else { continue }
 
-        let identifier = parts[uuidIdx]
+        let coreDeviceId = parts[uuidIdx]
         let state = uuidIdx + 1 < parts.count ? parts[uuidIdx + 1] : "unknown"
+
+        // Device name is everything before the hostname (one token before UUID)
+        let nameParts = parts.prefix(uuidIdx - 1)
+        let deviceName = nameParts.joined(separator: " ")
 
         // Model is everything after state
         let modelParts = parts.dropFirst(uuidIdx + 2)
         let model = modelParts.joined(separator: " ")
 
-        // We need the UDID, not the CoreDevice identifier — get it from usbmux or pymobiledevice3
-        // For now use the identifier
-        devices.append(ConnectedDevice(udid: identifier, model: model, state: state))
+        // Resolve real UDID from pymobiledevice3, fall back to CoreDevice UUID
+        let udid = udidMap[deviceName] ?? coreDeviceId
+
+        devices.append(ConnectedDevice(
+            udid: udid,
+            coreDeviceUUID: coreDeviceId,
+            name: deviceName,
+            model: model,
+            state: state
+        ))
     }
 
     return devices

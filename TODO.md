@@ -22,11 +22,11 @@
 ## Gaps
 
 ### Device discovery
-- [ ] CoreDevice UUID vs UDID mismatch in `idb devices discover`
+- [x] CoreDevice UUID vs UDID mismatch in `idb devices discover`
 
 ### App management
-- [ ] `idb install <ipa/app> [-d device]`
-- [ ] `idb app list [-d device]`
+- [x] `idb install <ipa/app> [-d device]`
+- [x] `idb app list [-d device]`
 
 ### Convenience
 - [x] `idb home [-d device]`
@@ -34,11 +34,11 @@
 - [x] `idb scroll <up|down|left|right> [-d device]`
 
 ### Doctor
-- [ ] Check WDA cert expiry date, warn if < 2 days
-- [ ] Validate config paths exist
+- [x] Check WDA cert expiry date, warn if < 2 days
+- [x] Validate config paths exist
 
 ### Cleanup
-- [ ] Delete ios-mirror repo (absorbed into idb)
+- [x] Delete ios-mirror repo (absorbed into idb)
 - [x] Update wda-build skill to use idb
 - [x] Update ios-control skill to use idb commands
 - [x] Update device-tools memory
