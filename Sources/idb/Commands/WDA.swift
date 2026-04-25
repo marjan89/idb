@@ -9,11 +9,11 @@ struct WDA: ParsableCommand {
 
     // MARK: - Shared helpers
 
-    static let wdaDir = "/Users/Shared/projects/device-tools/WebDriverAgent"
+    static var config: IDBConfig { IDBConfig.load() }
 
-    static func logPath(_ name: String) -> String { "/tmp/wda-\(name).log" }
-    static func pidPath(_ name: String) -> String { "/tmp/wda-\(name).pid" }
-    static func derivedDataPath(_ name: String) -> String { "/tmp/wda-build-\(name)" }
+    static func logPath(_ name: String) -> String { config.wdaLogPath(name) }
+    static func pidPath(_ name: String) -> String { "\(config.logDir)/wda-\(name).pid" }
+    static func derivedDataPath(_ name: String) -> String { config.derivedDataPath(name) }
 
     static func isWDARunning(_ name: String) -> Bool {
         guard let pidStr = try? String(contentsOfFile: pidPath(name), encoding: .utf8).trimmingCharacters(in: .whitespacesAndNewlines),
@@ -92,7 +92,7 @@ struct WDA: ParsableCommand {
         var device: String
 
         @Option(help: "WDA source directory")
-        var wdaDir: String = WDA.wdaDir
+        var wdaDir: String = IDBConfig.load().resolvedWdaDir
 
         func run() throws {
             let (name, dev) = try DeviceRegistry.resolve(device)
@@ -187,7 +187,7 @@ struct WDA: ParsableCommand {
         var clean = false
 
         @Option(help: "WDA source directory")
-        var wdaDir: String = WDA.wdaDir
+        var wdaDir: String = IDBConfig.load().resolvedWdaDir
 
         @Option(help: "Derived data path")
         var derivedData: String?
@@ -239,7 +239,7 @@ struct WDA: ParsableCommand {
         var device: String
 
         @Option(help: "WDA source directory")
-        var wdaDir: String = WDA.wdaDir
+        var wdaDir: String = IDBConfig.load().resolvedWdaDir
 
         @Option(help: "Max consecutive failures before giving up")
         var maxFailures: Int = 5

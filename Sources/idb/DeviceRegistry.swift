@@ -21,7 +21,7 @@ struct Device: Codable {
 
 /// Reads and manages the device registry (devices.json)
 struct DeviceRegistry {
-    static let path = NSString("~/.claude/daemons/wda/devices.json").expandingTildeInPath
+    static var path: String { NSString(string: IDBConfig.load().registryPath).expandingTildeInPath }
 
     static func load() throws -> [String: Device] {
         let data = try Data(contentsOf: URL(fileURLWithPath: path))

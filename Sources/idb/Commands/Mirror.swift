@@ -11,11 +11,11 @@ struct Mirror_: ParsableCommand {
     @Option(name: .long, help: "Window scale factor")
     var scale: Double = 0.5
 
-    @Option(name: .long, help: "MJPEG stream port (default: 9100)")
-    var mjpegPort: Int = 9100
+    @Option(name: .long, help: "MJPEG stream port")
+    var mjpegPort: Int = IDBConfig.load().defaultMjpegPort
 
-    @Option(name: .long, help: "FastTouch binary port (default: 9200)")
-    var touchPort: Int = 9200
+    @Option(name: .long, help: "FastTouch binary port")
+    var touchPort: Int = IDBConfig.load().defaultFastTouchPort
 
     func run() throws {
         // Resolve device — list available if none specified

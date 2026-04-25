@@ -19,6 +19,7 @@ struct IDB: ParsableCommand {
             Syslog.self,
             Mirror_.self,
             Doctor.self,
+            Config_.self,
         ]
     )
 }

@@ -11,61 +11,36 @@
 - [x] UI parser handles WDA's broken XML (unescaped quotes)
 - [x] WDA fork patch shipped as `wda-fork.patch`
 - [x] CLAUDE.md with design rules and gotchas
-
-## Architecture decisions
-
-### Hardcoded paths
-Current hardcoded paths that should be configurable:
-- WDA source: `/Users/Shared/projects/device-tools/WebDriverAgent`
-- Device registry: `~/.claude/daemons/wda/devices.json`
-- WDA logs: `/tmp/wda-<name>.log`
-- Derived data: `/tmp/wda-build-<name>`
-
-**Action:** Add `~/.config/idb/config.json` for paths. Sensible defaults, overridable. `idb doctor` validates all paths exist.
-
-### Multi-device port conflicts
-MJPEG (9100) and FastTouch (9200) are fixed ports — can't run two WDA instances simultaneously without port conflicts. Need per-device port config in devices.json.
-
-**Action:** Add optional `mjpeg_port` and `fast_touch_port` to devices.json. Default to 9100/9200.
-
-### CoreDevice UUID vs UDID
-`xcrun devicectl` uses CoreDevice UUIDs, `devices.json` uses UDID. `idb devices discover` can't match enrolled devices to connected ones.
-
-**Action:** Store both identifiers in devices.json, or use pymobiledevice3 for UDID resolution.
+- [x] Native WDA lifecycle — `start`, `stop`, `status`, `serve`, `install-service`, `log`
+- [x] launchd service generation and verified working
+- [x] Zero dependency on wda-ctl.sh
 
 ## Gaps
 
-### WDA lifecycle
-- [ ] `idb wda serve <device>` — heartbeat daemon in Swift (replaces wda-ctl.sh)
-  - Auto-restart on crash
-  - Health check loop
-  - Proper signal handling
-- [ ] launchd plist generator: `idb wda install-service <device>`
-- [ ] Remove dependency on wda-ctl.sh entirely
-- [ ] `idb wda start` prompts for password — investigate keychain access
+### Architecture
+- [ ] `~/.config/idb/config.json` for paths (WDA dir, registry, logs, derived data)
+- [ ] Multi-device port conflicts — MJPEG/FastTouch are fixed at 9100/9200, need per-device config
+- [ ] CoreDevice UUID vs UDID mismatch in `idb devices discover`
 
 ### App management
 - [ ] `idb install <ipa/app> [-d device]`
-- [ ] `idb app list [-d device]` — installed apps
+- [ ] `idb app list [-d device]`
 
 ### Convenience
-- [ ] `idb home [-d device]` — alias for `idb button home`
-- [ ] `idb back [-d device]` — left-edge swipe
-- [ ] `idb scroll <up|down|left|right> [-d device]` — directional scroll
+- [ ] `idb home [-d device]`
+- [ ] `idb back [-d device]`
+- [ ] `idb scroll <up|down|left|right> [-d device]`
 
 ### Config
-- [ ] `idb config init` — create `~/.config/idb/config.json` with defaults
-- [ ] `idb config show` — print current config
-- [ ] `idb config set <key> <value>`
+- [ ] `idb config init/show/set`
 
-### Doctor improvements
+### Doctor
 - [ ] Check WDA cert expiry date, warn if < 2 days
-- [ ] Check Xcode command line tools version
-- [ ] Validate all paths from config exist
+- [ ] Validate config paths exist
 
 ### Cleanup
 - [ ] Delete ios-mirror repo (absorbed into idb)
-- [ ] Update wda-build skill to reference idb
+- [ ] Update wda-build skill to use idb
 - [ ] Update ios-control skill to use idb commands
 - [ ] Update device-tools memory
 

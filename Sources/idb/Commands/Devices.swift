@@ -81,7 +81,7 @@ struct Devices: ParsableCommand {
 
 /// Extract device IP from WDA log
 func extractHostFromLog(_ deviceName: String) -> String? {
-    let logPath = "/tmp/wda-\(deviceName).log"
+    let logPath = IDBConfig.load().wdaLogPath(deviceName)
     guard let log = try? String(contentsOfFile: logPath, encoding: .utf8) else { return nil }
     // Look for "ServerURLHere->http://IP:PORT<-ServerURLHere"
     guard let range = log.range(of: "ServerURLHere->http://"),
