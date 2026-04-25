@@ -3,8 +3,8 @@ import Foundation
 
 struct Devices: ParsableCommand {
     static let configuration = CommandConfiguration(
-        abstract: "List enrolled devices and their status",
-        subcommands: [List_.self, Status.self],
+        abstract: "List, enroll, and manage devices",
+        subcommands: [List_.self, Status.self, Add.self, Remove.self, Discover.self],
         defaultSubcommand: List_.self
     )
 
