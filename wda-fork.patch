@@ -1,0 +1,296 @@
+diff --git a/Configurations/IOSTestSettings.xcconfig b/Configurations/IOSTestSettings.xcconfig
+index 17824cc3..13d64566 100644
+--- a/Configurations/IOSTestSettings.xcconfig
++++ b/Configurations/IOSTestSettings.xcconfig
+@@ -1 +1,3 @@
+ EXCLUDED_ARCHS = i386
++DEVELOPMENT_TEAM = 8WLC7943H8
++CODE_SIGN_STYLE = Automatic
+diff --git a/WebDriverAgent.xcodeproj/project.pbxproj b/WebDriverAgent.xcodeproj/project.pbxproj
+index 2d353269..7f10ec83 100644
+--- a/WebDriverAgent.xcodeproj/project.pbxproj
++++ b/WebDriverAgent.xcodeproj/project.pbxproj
+@@ -3606,7 +3606,7 @@
+ 				);
+ 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+ 				MTL_FAST_MATH = YES;
+-				PRODUCT_BUNDLE_IDENTIFIER = com.facebook.WebDriverAgentRunner;
++				PRODUCT_BUNDLE_IDENTIFIER = com.marjan89.WebDriverAgentRunner;
+ 				PRODUCT_NAME = "$(TARGET_NAME)";
+ 				SDKROOT = appletvos;
+ 				TARGETED_DEVICE_FAMILY = 3;
+@@ -3666,7 +3666,7 @@
+ 				);
+ 				MTL_FAST_MATH = YES;
+ 				ONLY_ACTIVE_ARCH = YES;
+-				PRODUCT_BUNDLE_IDENTIFIER = com.facebook.WebDriverAgentRunner;
++				PRODUCT_BUNDLE_IDENTIFIER = com.marjan89.WebDriverAgentRunner;
+ 				PRODUCT_NAME = "$(TARGET_NAME)";
+ 				SDKROOT = appletvos;
+ 				TARGETED_DEVICE_FAMILY = 3;
+@@ -4347,7 +4347,9 @@
+ 			baseConfigurationReference = EEE5CABF1C80361500CBBDD9 /* IOSSettings.xcconfig */;
+ 			buildSettings = {
+ 				CLANG_STATIC_ANALYZER_MODE = deep;
++				CODE_SIGN_STYLE = Automatic;
+ 				DEBUG_INFORMATION_FORMAT = dwarf;
++				DEVELOPMENT_TEAM = 8WLC7943H8;
+ 				ENABLE_TESTING_SEARCH_PATHS = YES;
+ 				FRAMEWORK_SEARCH_PATHS = "$(inherited)";
+ 				INFOPLIST_FILE = WebDriverAgentRunner/Info.plist;
+@@ -4364,7 +4366,7 @@
+ 					"$(inherited)",
+ 					"-all_load",
+ 				);
+-				PRODUCT_BUNDLE_IDENTIFIER = com.facebook.WebDriverAgentRunner;
++				PRODUCT_BUNDLE_IDENTIFIER = com.marjan89.WebDriverAgentRunner;
+ 				PRODUCT_NAME = "$(TARGET_NAME)";
+ 				USES_XCTRUNNER = YES;
+ 				WARNING_CFLAGS = (
+@@ -4400,6 +4402,8 @@
+ 			baseConfigurationReference = EEE5CABF1C80361500CBBDD9 /* IOSSettings.xcconfig */;
+ 			buildSettings = {
+ 				CLANG_STATIC_ANALYZER_MODE = deep;
++				CODE_SIGN_STYLE = Automatic;
++				DEVELOPMENT_TEAM = 8WLC7943H8;
+ 				ENABLE_TESTING_SEARCH_PATHS = YES;
+ 				FRAMEWORK_SEARCH_PATHS = "$(inherited)";
+ 				INFOPLIST_FILE = WebDriverAgentRunner/Info.plist;
+@@ -4417,7 +4421,7 @@
+ 					"$(inherited)",
+ 					"-all_load",
+ 				);
+-				PRODUCT_BUNDLE_IDENTIFIER = com.facebook.WebDriverAgentRunner;
++				PRODUCT_BUNDLE_IDENTIFIER = com.marjan89.WebDriverAgentRunner;
+ 				PRODUCT_NAME = "$(TARGET_NAME)";
+ 				USES_XCTRUNNER = YES;
+ 				WARNING_CFLAGS = (
+diff --git a/WebDriverAgentLib/Routing/FBWebServer.m b/WebDriverAgentLib/Routing/FBWebServer.m
+index 29a2e16e..05e079fd 100644
+--- a/WebDriverAgentLib/Routing/FBWebServer.m
++++ b/WebDriverAgentLib/Routing/FBWebServer.m
+@@ -14,6 +14,7 @@
+ #import "FBCommandHandler.h"
+ #import "FBErrorBuilder.h"
+ #import "FBExceptionHandler.h"
++#import "../Utilities/FBFastTouchServer.m"
+ #import "FBMjpegServer.h"
+ #import "FBRouteRequest.h"
+ #import "FBRuntimeUtils.h"
+@@ -78,6 +79,7 @@ - (void)startServing
+   self.exceptionHandler = [FBExceptionHandler new];
+   [self startHTTPServer];
+   [self initScreenshotsBroadcaster];
++  [FBFastTouchServer startOnPort:9200];
+ 
+   self.keepAlive = YES;
+   NSRunLoop *runLoop = [NSRunLoop mainRunLoop];
+diff --git a/WebDriverAgentLib/Utilities/FBFastTouchServer.h b/WebDriverAgentLib/Utilities/FBFastTouchServer.h
+new file mode 100644
+index 00000000..0b3ac067
+--- /dev/null
++++ b/WebDriverAgentLib/Utilities/FBFastTouchServer.h
+@@ -0,0 +1,20 @@
++/**
++ * FBFastTouchServer — binary TCP socket for low-latency touch injection.
++ *
++ * Protocol (little-endian):
++ *   Request:  [cmd:u8][x:f32][y:f32][x2:f32][y2:f32][duration:f32] = 21 bytes
++ *   Response: [status:u8] = 1 byte (0=ok, 1=error)
++ *
++ * Commands:
++ *   0x01 = tap at (x, y)
++ *   0x02 = swipe from (x, y) to (x2, y2) over duration seconds
++ *   0x03 = press button (x=button: 1=home, 2=volumeUp, 3=volumeDown)
++ */
++
++#import <Foundation/Foundation.h>
++
++@interface FBFastTouchServer : NSObject
++
+++ (void)startOnPort:(uint16_t)port;
++
++@end
+diff --git a/WebDriverAgentLib/Utilities/FBFastTouchServer.m b/WebDriverAgentLib/Utilities/FBFastTouchServer.m
+new file mode 100644
+index 00000000..cb37f322
+--- /dev/null
++++ b/WebDriverAgentLib/Utilities/FBFastTouchServer.m
+@@ -0,0 +1,177 @@
++/**
++ * FBFastTouchServer — binary TCP socket for low-latency touch injection.
++ * Bypasses HTTP/JSON/W3C entirely. Calls XCTest event synthesis directly.
++ */
++
++#import "FBFastTouchServer.h"
++
++#import <sys/socket.h>
++#import <netinet/in.h>
++#import <netinet/tcp.h>
++#import <arpa/inet.h>
++#import <XCTest/XCTest.h>
++
++#import "XCSynthesizedEventRecord.h"
++#import "XCPointerEventPath.h"
++#import "XCTRunnerDaemonSession.h"
++#import "XCTestManager_ManagerInterface-Protocol.h"
++
++static const uint8_t CMD_TAP = 0x01;
++static const uint8_t CMD_SWIPE = 0x02;
++static const uint8_t CMD_BUTTON = 0x03;
++
++static const uint8_t STATUS_OK = 0x00;
++static const uint8_t STATUS_ERROR = 0x01;
++
++#pragma pack(push, 1)
++typedef struct {
++    uint8_t cmd;
++    float x;
++    float y;
++    float x2;
++    float y2;
++    float duration;
++} FastTouchMessage;
++#pragma pack(pop)
++
++@implementation FBFastTouchServer
++
+++ (void)startOnPort:(uint16_t)port
++{
++    dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_HIGH, 0), ^{
++        [self runServerOnPort:port];
++    });
++}
++
+++ (void)runServerOnPort:(uint16_t)port
++{
++    int server_fd = socket(AF_INET, SOCK_STREAM, 0);
++    if (server_fd < 0) {
++        NSLog(@"[FastTouch] socket() failed: %s", strerror(errno));
++        return;
++    }
++
++    int opt = 1;
++    setsockopt(server_fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
++
++    // Disable Nagle's algorithm for minimum latency
++    int flag = 1;
++    setsockopt(server_fd, IPPROTO_TCP, TCP_NODELAY, &flag, sizeof(flag));
++
++    struct sockaddr_in addr;
++    memset(&addr, 0, sizeof(addr));
++    addr.sin_family = AF_INET;
++    addr.sin_addr.s_addr = INADDR_ANY;
++    addr.sin_port = htons(port);
++
++    if (bind(server_fd, (struct sockaddr *)&addr, sizeof(addr)) < 0) {
++        NSLog(@"[FastTouch] bind() failed on port %d: %s", port, strerror(errno));
++        close(server_fd);
++        return;
++    }
++
++    listen(server_fd, 2);
++    NSLog(@"[FastTouch] Listening on port %d (21-byte binary protocol)", port);
++
++    while (1) {
++        int client_fd = accept(server_fd, NULL, NULL);
++        if (client_fd < 0) {
++            NSLog(@"[FastTouch] accept() failed: %s", strerror(errno));
++            continue;
++        }
++
++        // Disable Nagle on client socket too
++        setsockopt(client_fd, IPPROTO_TCP, TCP_NODELAY, &flag, sizeof(flag));
++        NSLog(@"[FastTouch] Client connected");
++
++        dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_HIGH, 0), ^{
++            [self handleClient:client_fd];
++        });
++    }
++}
++
+++ (void)handleClient:(int)client_fd
++{
++    FastTouchMessage msg;
++    while (1) {
++        // Read exactly 21 bytes
++        ssize_t total = 0;
++        while (total < (ssize_t)sizeof(msg)) {
++            ssize_t n = read(client_fd, ((uint8_t *)&msg) + total, sizeof(msg) - total);
++            if (n <= 0) {
++                NSLog(@"[FastTouch] Client disconnected");
++                close(client_fd);
++                return;
++            }
++            total += n;
++        }
++
++        uint8_t status = STATUS_OK;
++
++        switch (msg.cmd) {
++            case CMD_TAP:
++                [self executeTapAtX:msg.x y:msg.y];
++                break;
++            case CMD_SWIPE:
++                [self executeSwipeFromX:msg.x fromY:msg.y toX:msg.x2 toY:msg.y2 duration:msg.duration];
++                break;
++            case CMD_BUTTON:
++                // Button presses handled via HTTP — not implemented here
++                status = STATUS_ERROR;
++                break;
++            default:
++                NSLog(@"[FastTouch] Unknown command: 0x%02x", msg.cmd);
++                status = STATUS_ERROR;
++                break;
++        }
++
++        // Send 1-byte response
++        write(client_fd, &status, 1);
++    }
++}
++
+++ (id<XCTestManager_ManagerInterface>)daemonProxy
++{
++    return ((XCTRunnerDaemonSession *)[XCTRunnerDaemonSession sharedSession]).daemonProxy;
++}
++
+++ (void)executeTapAtX:(float)x y:(float)y
++{
++    XCPointerEventPath *path = [[XCPointerEventPath alloc] initForTouchAtPoint:CGPointMake(x, y)
++                                                                        offset:0.0];
++    [path liftUpAtOffset:0.01];
++
++    XCSynthesizedEventRecord *record = [[XCSynthesizedEventRecord alloc]
++        initWithName:@"fast-tap"
++        interfaceOrientation:0];
++    [record addPointerEventPath:path];
++
++    // Fire directly on the XPC proxy — no FBRunLoopSpinner, no waiting.
++    // XPC dispatches on its own queue asynchronously.
++    [[self daemonProxy] _XCT_synthesizeEvent:record
++                                  completion:^(NSError *error) {
++        if (error) NSLog(@"[FastTouch] tap error: %@", error);
++    }];
++}
++
+++ (void)executeSwipeFromX:(float)fx fromY:(float)fy toX:(float)tx toY:(float)ty duration:(float)duration
++{
++    if (duration < 0.001) duration = 0.01;
++
++    XCPointerEventPath *path = [[XCPointerEventPath alloc] initForTouchAtPoint:CGPointMake(fx, fy)
++                                                                        offset:0.0];
++    [path moveToPoint:CGPointMake(tx, ty) atOffset:duration];
++    [path liftUpAtOffset:duration + 0.01];
++
++    XCSynthesizedEventRecord *record = [[XCSynthesizedEventRecord alloc]
++        initWithName:@"fast-swipe"
++        interfaceOrientation:0];
++    [record addPointerEventPath:path];
++
++    [[self daemonProxy] _XCT_synthesizeEvent:record
++                                  completion:^(NSError *error) {
++        if (error) NSLog(@"[FastTouch] swipe error: %@", error);
++    }];
++}
++
++@end

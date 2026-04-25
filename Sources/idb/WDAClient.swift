@@ -35,6 +35,18 @@ class WDAClient {
         )
     }
 
+    func configureMJPEG(fps: Int = 30, quality: Int = 50, scalingFactor: Int = 50) {
+        guard let sid = sessionID else { return }
+        let settings: [String: Any] = [
+            "settings": [
+                "mjpegServerFramerate": fps,
+                "mjpegServerScreenshotQuality": quality,
+                "mjpegScalingFactor": scalingFactor
+            ]
+        ]
+        let _ = try? syncPOST("/session/\(sid)/appium/settings", json: settings)
+    }
+
     func tap(_ x: Double, _ y: Double) throws {
         guard let sid = sessionID else { throw IDBError.commandFailed("No session") }
         let _ = try syncPOST("/session/\(sid)/wda/tap", json: ["x": x, "y": y])
