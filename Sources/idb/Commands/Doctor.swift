@@ -64,11 +64,11 @@ struct Doctor: ParsableCommand {
                 if wdaCheck.code == 0, wdaCheck.out.contains("ready") {
                     pass("\(name): WDA ready at \(ip):\(dev.port)")
 
-                    let ftCheck = shell("python3 -c \"import socket; s=socket.socket(); s.settimeout(2); s.connect(('\(ip)',\(dev.port + 1100))); s.close(); print('ok')\" 2>/dev/null")
+                    let ftCheck = shell("python3 -c \"import socket; s=socket.socket(); s.settimeout(2); s.connect(('\(ip)',\(9200))); s.close(); print('ok')\" 2>/dev/null")
                     if ftCheck.out == "ok" {
-                        pass("\(name): FastTouch ready on port \(dev.port + 1100)")
+                        pass("\(name): FastTouch ready on port \(9200)")
                     } else {
-                        warn("\(name): FastTouch not available (port \(dev.port + 1100))")
+                        warn("\(name): FastTouch not available (port \(9200))")
                     }
                 } else {
                     warn("\(name): WDA not responding (tried \(ip):\(dev.port))")
