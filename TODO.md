@@ -29,9 +29,9 @@
 - [ ] `idb app list [-d device]`
 
 ### Convenience
-- [ ] `idb home [-d device]`
-- [ ] `idb back [-d device]`
-- [ ] `idb scroll <up|down|left|right> [-d device]`
+- [x] `idb home [-d device]`
+- [x] `idb back [-d device]`
+- [x] `idb scroll <up|down|left|right> [-d device]`
 
 ### Doctor
 - [ ] Check WDA cert expiry date, warn if < 2 days
@@ -42,7 +42,7 @@
 - [ ] Update wda-build skill to use idb
 - [ ] Update ios-control skill to use idb commands
 - [ ] Update device-tools memory
-- [ ] idb README
+- [x] idb README
 
 ## Design principles
 

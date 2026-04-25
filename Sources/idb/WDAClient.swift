@@ -117,7 +117,7 @@ class WDAClient {
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.httpBody = try JSONSerialization.data(withJSONObject: json)
-        request.timeoutInterval = 10
+        request.timeoutInterval = 30
         return try syncRequest(request)
     }
 
