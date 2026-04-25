@@ -15,12 +15,13 @@ struct Doctor: ParsableCommand {
         issues += check("ios-mirror", "test -x /Users/Shared/projects/device-tools/ios-mirror/.build/release/ios-mirror && echo 'ok' || echo 'not built'")
 
         heading("Signing")
-        let sigResult = shell("security find-identity -v -p codesigning 2>/dev/null | grep '8WLC7943H8'")
+        let sigResult = shell("security find-identity -v -p codesigning 2>/dev/null | grep 'marjan89@gmail.com'")
         if sigResult.out.isEmpty {
-            fail("Signing identity for team 8WLC7943H8 not found")
+            fail("Signing identity for marjan89@gmail.com not found")
             issues += 1
         } else {
-            pass("Signing identity: \(sigResult.out.components(separatedBy: "\"").dropFirst().first ?? "?")")
+            let name = sigResult.out.components(separatedBy: "\"").dropFirst().first ?? "?"
+            pass("Signing identity: \(name)")
         }
 
         heading("WDA Fork")
@@ -58,19 +59,19 @@ struct Doctor: ParsableCommand {
         do {
             let devices = try DeviceRegistry.load()
             for (name, dev) in devices.sorted(by: { $0.value.port < $1.value.port }) {
-                let wdaCheck = shell("curl -s --connect-timeout 3 http://localhost:\(dev.port)/status")
+                let ip = extractHostFromLog(name) ?? "localhost"
+                let wdaCheck = shell("curl -s --connect-timeout 3 http://\(ip):\(dev.port)/status")
                 if wdaCheck.code == 0, wdaCheck.out.contains("ready") {
-                    pass("\(name): WDA ready on port \(dev.port)")
+                    pass("\(name): WDA ready at \(ip):\(dev.port)")
 
-                    // Check FastTouch
-                    let ftCheck = shell("python3 -c \"import socket,struct; s=socket.socket(); s.settimeout(2); s.connect(('localhost',\(dev.port + 1100))); s.close(); print('ok')\" 2>/dev/null")
+                    let ftCheck = shell("python3 -c \"import socket; s=socket.socket(); s.settimeout(2); s.connect(('\(ip)',\(dev.port + 1100))); s.close(); print('ok')\" 2>/dev/null")
                     if ftCheck.out == "ok" {
                         pass("\(name): FastTouch ready on port \(dev.port + 1100)")
                     } else {
                         warn("\(name): FastTouch not available (port \(dev.port + 1100))")
                     }
                 } else {
-                    warn("\(name): WDA not responding")
+                    warn("\(name): WDA not responding (tried \(ip):\(dev.port))")
                 }
             }
         } catch {}
