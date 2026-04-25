@@ -39,9 +39,9 @@
 
 ### Cleanup
 - [ ] Delete ios-mirror repo (absorbed into idb)
-- [ ] Update wda-build skill to use idb
-- [ ] Update ios-control skill to use idb commands
-- [ ] Update device-tools memory
+- [x] Update wda-build skill to use idb
+- [x] Update ios-control skill to use idb commands
+- [x] Update device-tools memory
 - [x] idb README
 
 ## Design principles
