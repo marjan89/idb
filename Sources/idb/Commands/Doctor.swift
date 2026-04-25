@@ -12,7 +12,6 @@ struct Doctor: ParsableCommand {
         issues += check("xcrun devicectl", "xcrun devicectl --version 2>/dev/null || echo 'missing'")
         issues += check("pymobiledevice3", "pymobiledevice3 version 2>/dev/null || echo 'missing'")
         issues += check("nosandbox", "test -x ~/.claude/bin/nosandbox && echo 'ok' || echo 'missing'")
-        issues += check("ios-mirror", "test -x /Users/Shared/projects/device-tools/ios-mirror/.build/release/ios-mirror && echo 'ok' || echo 'not built'")
 
         heading("Signing")
         let sigResult = shell("security find-identity -v -p codesigning 2>/dev/null | grep 'marjan89@gmail.com'")

@@ -4,7 +4,7 @@ import Foundation
 struct WDA: ParsableCommand {
     static let configuration = CommandConfiguration(
         abstract: "Manage WebDriverAgent lifecycle",
-        subcommands: [Start.self, Stop.self, Status.self, Build.self, Serve.self, InstallService.self, Log_.self]
+        subcommands: [Start.self, Stop.self, Status.self, Build.self, BuildAll.self, Serve.self, InstallService.self, Log_.self]
     )
 
     // MARK: - Shared helpers
@@ -226,6 +226,40 @@ struct WDA: ParsableCommand {
 
             if start {
                 try Start.parse([name, "--wda-dir", wdaDir]).run()
+            }
+        }
+    }
+
+    // MARK: - Build All
+
+    struct BuildAll: ParsableCommand {
+        static let configuration = CommandConfiguration(
+            commandName: "build-all",
+            abstract: "Rebuild WDA for all enrolled devices"
+        )
+
+        @Flag(help: "Clean build")
+        var clean = false
+
+        @Flag(help: "Start WDA after building each device")
+        var start = false
+
+        func run() throws {
+            let devices = try DeviceRegistry.load()
+            let sorted = devices.sorted(by: { $0.value.port < $1.value.port })
+
+            for (name, _) in sorted {
+                print("=== \(name) ===")
+                var args = [name]
+                if clean { args.append("--clean") }
+                if start { args.append("--start") }
+                do {
+                    var build = try Build.parse(args)
+                    try build.run()
+                } catch {
+                    print("  FAILED: \(error)")
+                }
+                print()
             }
         }
     }
