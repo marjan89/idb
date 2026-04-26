@@ -20,6 +20,7 @@ final class ConfigTests: XCTestCase {
             derivedDataDir: "/test/dd",
             defaultMjpegPort: 9101,
             defaultFastTouchPort: 9201,
+            signingEmail: "test@example.com",
             mirrorKeybindings: MirrorKeybinding(home: "shift+h", back: "ctrl+b", taskSwitcher: "opt+tab")
         )
 

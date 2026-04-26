@@ -61,6 +61,22 @@ struct DeviceRegistry {
 
         throw IDBError.noDeviceSpecified(available: Array(devices.keys).sorted())
     }
+
+    /// Resolve CoreDevice UUID for an enrolled device (needed for devicectl commands)
+    static func coreDeviceUUID(forName name: String) -> String? {
+        let result = shell("xcrun devicectl list devices 2>/dev/null")
+        for line in result.out.components(separatedBy: "\n") {
+            guard line.contains("connected") || line.contains("unavailable") else { continue }
+            guard !line.contains("---") else { continue }
+            let parts = line.split(separator: " ", omittingEmptySubsequences: true).map(String.init)
+            guard let uuidIdx = parts.firstIndex(where: { $0.count == 36 && $0.contains("-") }) else { continue }
+            let nameParts = parts.prefix(max(uuidIdx - 1, 0))
+            if nameParts.joined(separator: " ") == name {
+                return parts[uuidIdx]
+            }
+        }
+        return nil
+    }
 }
 
 enum IDBError: Error, CustomStringConvertible {

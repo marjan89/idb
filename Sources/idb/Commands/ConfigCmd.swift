@@ -57,6 +57,7 @@ struct Config_: ParsableCommand {
             case "default_fast_touch_port":
                 guard let v = Int(value) else { print("Invalid port"); throw ExitCode.failure }
                 config.defaultFastTouchPort = v
+            case "signing_email": config.signingEmail = value
             case "mirror_keybindings.home":
                 config.mirrorKeybindings.home = value
             case "mirror_keybindings.back":

@@ -6,6 +6,7 @@ struct Doctor: ParsableCommand {
 
     func run() throws {
         var issues = 0
+        let config = IDBConfig.load()
 
         heading("Tools")
         issues += check("xcodebuild", "xcodebuild -version 2>/dev/null | head -1")
@@ -13,13 +14,18 @@ struct Doctor: ParsableCommand {
         issues += check("pymobiledevice3", "pymobiledevice3 version 2>/dev/null || echo 'missing'")
 
         heading("Signing")
-        let sigResult = shell("security find-identity -v -p codesigning 2>/dev/null | grep 'marjan89@gmail.com'")
-        if sigResult.out.isEmpty {
-            fail("Signing identity for marjan89@gmail.com not found")
-            issues += 1
+        let email = config.signingEmail
+        if email.isEmpty {
+            warn("signing_email not set in config — skipping signing check")
         } else {
-            let name = sigResult.out.components(separatedBy: "\"").dropFirst().first ?? "?"
-            pass("Signing identity: \(name)")
+            let sigResult = shell("security find-identity -v -p codesigning 2>/dev/null | grep '\(email)'")
+            if sigResult.out.isEmpty {
+                fail("Signing identity for \(email) not found")
+                issues += 1
+            } else {
+                let name = sigResult.out.components(separatedBy: "\"").dropFirst().first ?? "?"
+                pass("Signing identity: \(name)")
+            }
         }
 
         heading("WDA Fork")
@@ -76,7 +82,6 @@ struct Doctor: ParsableCommand {
         } catch {}
 
         heading("Config Paths")
-        let config = IDBConfig.load()
         let wdaDir = NSString(string: config.wdaDir).expandingTildeInPath
         let registryPath = NSString(string: config.registryPath).expandingTildeInPath
         if FileManager.default.fileExists(atPath: wdaDir) {

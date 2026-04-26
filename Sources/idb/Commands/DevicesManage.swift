@@ -179,28 +179,6 @@ private func pymobiledevice3UDIDs() -> [String: String] {
     return mapping
 }
 
-/// Resolve the CoreDevice UUID for a device name from devicectl output.
-func coreDeviceUUID(forDeviceName name: String) -> String? {
-    let result = shell("xcrun devicectl list devices 2>/dev/null")
-    for line in result.out.components(separatedBy: "\n") {
-        guard line.contains("connected") || line.contains("unavailable") else { continue }
-        guard !line.contains("---") else { continue }
-
-        let parts = line.split(separator: " ", omittingEmptySubsequences: true).map(String.init)
-        guard let uuidIdx = parts.firstIndex(where: { $0.count == 36 && $0.contains("-") }) else { continue }
-
-        // Device name is everything before the hostname (second-to-last before UUID)
-        // Format: Name [Hostname] Identifier State Model...
-        // Name can be multi-word; hostname is the part just before the UUID
-        let nameParts = parts.prefix(uuidIdx - 1)  // everything before hostname
-        let deviceName = nameParts.joined(separator: " ")
-
-        if deviceName == name {
-            return parts[uuidIdx]
-        }
-    }
-    return nil
-}
 
 private func discoverDevices() -> [ConnectedDevice] {
     let result = shell("xcrun devicectl list devices 2>/dev/null")

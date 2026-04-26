@@ -1,6 +1,6 @@
 import Foundation
 
-/// HTTP client for WDA API (session setup, buttons, typing, screenshots)
+/// HTTP client for WDA API
 class WDAClient {
     let baseURL: String
     var sessionID: String?
@@ -9,42 +9,55 @@ class WDAClient {
         self.baseURL = baseURL
     }
 
+    private func json(_ data: Data) throws -> [String: Any] {
+        guard let obj = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            throw IDBError.commandFailed("Invalid JSON response")
+        }
+        return obj
+    }
+
+    private func value(_ data: Data) throws -> [String: Any] {
+        let j = try json(data)
+        guard let v = j["value"] as? [String: Any] else {
+            throw IDBError.commandFailed("Missing 'value' in response")
+        }
+        return v
+    }
+
     func status() throws -> [String: Any] {
-        let data = try syncGET("/status")
-        let json = try JSONSerialization.jsonObject(with: data) as! [String: Any]
-        return json["value"] as! [String: Any]
+        try value(syncGET("/status"))
     }
 
     func createSession() throws -> String {
         let body: [String: Any] = ["capabilities": ["alwaysMatch": ["platformName": "iOS"]]]
         let data = try syncPOST("/session", json: body)
-        let json = try JSONSerialization.jsonObject(with: data) as! [String: Any]
-        let value = json["value"] as! [String: Any]
-        sessionID = value["sessionId"] as? String
-        return sessionID!
+        let v = try value(data)
+        guard let sid = v["sessionId"] as? String else {
+            throw IDBError.commandFailed("No sessionId in response")
+        }
+        sessionID = sid
+        return sid
     }
 
     func windowSize() throws -> (width: Double, height: Double) {
         guard let sid = sessionID else { throw IDBError.commandFailed("No session") }
-        let data = try syncGET("/session/\(sid)/window/size")
-        let json = try JSONSerialization.jsonObject(with: data) as! [String: Any]
-        let value = json["value"] as! [String: Any]
-        return (
-            (value["width"] as! NSNumber).doubleValue,
-            (value["height"] as! NSNumber).doubleValue
-        )
+        let v = try value(syncGET("/session/\(sid)/window/size"))
+        guard let w = (v["width"] as? NSNumber)?.doubleValue,
+              let h = (v["height"] as? NSNumber)?.doubleValue else {
+            throw IDBError.commandFailed("Invalid window size response")
+        }
+        return (w, h)
     }
 
     func configureMJPEG(fps: Int = 30, quality: Int = 50, scalingFactor: Int = 50) {
         guard let sid = sessionID else { return }
-        let settings: [String: Any] = [
+        let _ = try? syncPOST("/session/\(sid)/appium/settings", json: [
             "settings": [
                 "mjpegServerFramerate": fps,
                 "mjpegServerScreenshotQuality": quality,
                 "mjpegScalingFactor": scalingFactor
             ]
-        ]
-        let _ = try? syncPOST("/session/\(sid)/appium/settings", json: settings)
+        ])
     }
 
     func tap(_ x: Double, _ y: Double) throws {
@@ -106,16 +119,17 @@ class WDAClient {
 
     func source() throws -> String {
         let data = try syncGET("/source")
-        let json = try JSONSerialization.jsonObject(with: data) as! [String: Any]
-        let raw = json["value"] as? String ?? ""
-        // WDA returns XML with escaped forward slashes — unescape them
+        let j = try json(data)
+        guard let raw = j["value"] as? String else {
+            throw IDBError.commandFailed("Invalid source response")
+        }
         return raw.replacingOccurrences(of: "\\/", with: "/")
     }
 
     func screenshot() throws -> Data {
         let data = try syncGET("/screenshot")
-        let json = try JSONSerialization.jsonObject(with: data) as! [String: Any]
-        guard let b64 = json["value"] as? String,
+        let j = try json(data)
+        guard let b64 = j["value"] as? String,
               let imgData = Data(base64Encoded: b64) else {
             throw IDBError.commandFailed("Invalid screenshot response")
         }
@@ -124,9 +138,7 @@ class WDAClient {
 
     func activeApp() throws -> [String: Any] {
         guard let sid = sessionID else { throw IDBError.commandFailed("No session") }
-        let data = try syncGET("/session/\(sid)/wda/activeAppInfo")
-        let json = try JSONSerialization.jsonObject(with: data) as! [String: Any]
-        return json["value"] as? [String: Any] ?? [:]
+        return try value(syncGET("/session/\(sid)/wda/activeAppInfo"))
     }
 
     func launch(bundleId: String) throws {
@@ -147,11 +159,11 @@ class WDAClient {
         return try syncRequest(request)
     }
 
-    private func syncPOST(_ path: String, json: [String: Any]) throws -> Data {
+    private func syncPOST(_ path: String, json body: [String: Any]) throws -> Data {
         var request = URLRequest(url: URL(string: baseURL + path)!)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.httpBody = try JSONSerialization.data(withJSONObject: json)
+        request.httpBody = try JSONSerialization.data(withJSONObject: body)
         request.timeoutInterval = 30
         return try syncRequest(request)
     }

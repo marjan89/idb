@@ -22,6 +22,7 @@ struct IDBConfig: Equatable {
     var derivedDataDir: String
     var defaultMjpegPort: Int
     var defaultFastTouchPort: Int
+    var signingEmail: String
     var mirrorKeybindings: MirrorKeybinding
 
     static let configDir = NSString(string: "~/.config/idb").expandingTildeInPath
@@ -34,6 +35,7 @@ struct IDBConfig: Equatable {
         derivedDataDir: "/tmp",
         defaultMjpegPort: 9100,
         defaultFastTouchPort: 9200,
+        signingEmail: "",
         mirrorKeybindings: .defaults
     )
 
@@ -65,6 +67,7 @@ struct IDBConfig: Equatable {
         if let v = t["derived_data_dir"]?.string { config.derivedDataDir = v }
         if let v = t["default_mjpeg_port"]?.int { config.defaultMjpegPort = v }
         if let v = t["default_fast_touch_port"]?.int { config.defaultFastTouchPort = v }
+        if let v = t["signing_email"]?.string { config.signingEmail = v }
 
         if let kb = t["mirror_keybindings"] as? TOMLTable {
             if let v = kb["home"]?.string { config.mirrorKeybindings.home = v }
@@ -120,6 +123,11 @@ struct IDBConfig: Equatable {
         # Requires WDA fork with FBFastTouchServer. Falls back to HTTP if unavailable.
         # Used by: idb tap, idb swipe, idb mirror
         default_fast_touch_port = \(config.defaultFastTouchPort)
+
+        # Apple ID email for code signing identity lookup
+        # Used by: idb doctor (signing check)
+        # Leave empty to skip signing verification
+        signing_email = "\(config.signingEmail)"
 
         # Mirror keybindings
         # Format: key alone or modifier+key
