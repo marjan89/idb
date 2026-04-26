@@ -39,6 +39,23 @@ class MirrorWDABridge {
         }
     }
 
+    func setPasteboard(_ text: String) {
+        cmdQueue.trySubmit("paste") {
+            try? self.httpClient.setPasteboard(text)
+        }
+    }
+
+    func getPasteboard() -> String? {
+        var result: String?
+        let sem = DispatchSemaphore(value: 0)
+        cmdQueue.trySubmit("copy") {
+            result = try? self.httpClient.getPasteboard()
+            sem.signal()
+        }
+        sem.wait()
+        return result
+    }
+
     func pressButton(_ name: String) {
         cmdQueue.trySubmit("button") {
             try? self.httpClient.pressButton(name)

@@ -117,6 +117,21 @@ class WDAClient {
         let _ = try syncPOST("/session/\(sid)/wda/keys", json: ["value": keys])
     }
 
+    func getPasteboard(contentType: String = "plaintext") throws -> String {
+        let data = try syncPOST("/wda/getPasteboard", json: ["contentType": contentType])
+        let j = try json(data)
+        guard let b64 = j["value"] as? String,
+              let decoded = Data(base64Encoded: b64) else {
+            return ""
+        }
+        return String(data: decoded, encoding: .utf8) ?? ""
+    }
+
+    func setPasteboard(_ text: String, contentType: String = "plaintext") throws {
+        let b64 = Data(text.utf8).base64EncodedString()
+        let _ = try syncPOST("/wda/setPasteboard", json: ["content": b64, "contentType": contentType])
+    }
+
     func source() throws -> String {
         let data = try syncGET("/source")
         let j = try json(data)

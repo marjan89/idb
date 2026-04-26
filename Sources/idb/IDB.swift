@@ -20,6 +20,8 @@ struct IDB: ParsableCommand {
             Home.self,
             Back.self,
             Scroll_.self,
+            Copy_.self,
+            Paste.self,
             Mirror_.self,
             Doctor.self,
             Config_.self,
