@@ -126,8 +126,18 @@ class MirrorWindow: NSWindow {
 
         let loc = mirrorView.convert(event.locationInWindow, from: nil)
         let (cx, cy) = toWDA(loc)
-        let d: CGFloat = 150
 
+        // Option+scroll = pinch (zoom)
+        if event.modifierFlags.contains(.option) {
+            guard abs(event.scrollingDeltaY) > 2 else { return }
+            lastScrollTime = now
+            let scale = event.scrollingDeltaY > 0 ? 1.5 : 0.67
+            wda.pinch(cx, cy, scale: scale)
+            return
+        }
+
+        // Plain scroll
+        let d: CGFloat = 150
         if abs(event.scrollingDeltaY) > 2 {
             lastScrollTime = now
             if event.scrollingDeltaY > 0 {

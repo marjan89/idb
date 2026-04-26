@@ -59,6 +59,41 @@ class WDAClient {
                                     "toX": toX, "toY": toY, "duration": duration])
     }
 
+    /// Pinch at center point. scale > 1 = zoom in, scale < 1 = zoom out.
+    func pinch(centerX: Double, centerY: Double, scale: Double, duration: Double = 0.3) throws {
+        guard let sid = sessionID else { throw IDBError.commandFailed("No session") }
+
+        let spread: Double = 80
+        let startDist = scale > 1 ? spread * 0.3 : spread
+        let endDist = scale > 1 ? spread : spread * 0.3
+        let ms = Int(duration * 1000)
+
+        let actions: [[String: Any]] = [
+            [
+                "type": "pointer", "id": "finger1",
+                "parameters": ["pointerType": "touch"],
+                "actions": [
+                    ["type": "pointerMove", "duration": 0, "x": Int(centerX), "y": Int(centerY - startDist)],
+                    ["type": "pointerDown", "button": 0],
+                    ["type": "pointerMove", "duration": ms, "x": Int(centerX), "y": Int(centerY - endDist)],
+                    ["type": "pointerUp", "button": 0],
+                ]
+            ],
+            [
+                "type": "pointer", "id": "finger2",
+                "parameters": ["pointerType": "touch"],
+                "actions": [
+                    ["type": "pointerMove", "duration": 0, "x": Int(centerX), "y": Int(centerY + startDist)],
+                    ["type": "pointerDown", "button": 0],
+                    ["type": "pointerMove", "duration": ms, "x": Int(centerX), "y": Int(centerY + endDist)],
+                    ["type": "pointerUp", "button": 0],
+                ]
+            ]
+        ]
+
+        let _ = try syncPOST("/session/\(sid)/actions", json: ["actions": actions])
+    }
+
     func pressButton(_ name: String) throws {
         guard let sid = sessionID else { throw IDBError.commandFailed("No session") }
         let _ = try syncPOST("/session/\(sid)/wda/pressButton", json: ["name": name])

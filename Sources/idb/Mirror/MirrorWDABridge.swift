@@ -33,6 +33,12 @@ class MirrorWDABridge {
         }
     }
 
+    func pinch(_ cx: CGFloat, _ cy: CGFloat, scale: Double) {
+        cmdQueue.trySubmit("pinch") {
+            try? self.httpClient.pinch(centerX: Double(cx), centerY: Double(cy), scale: scale)
+        }
+    }
+
     func pressButton(_ name: String) {
         cmdQueue.trySubmit("button") {
             try? self.httpClient.pressButton(name)
