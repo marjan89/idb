@@ -7,6 +7,19 @@ struct WDA: ParsableCommand {
         subcommands: [Start.self, Stop.self, Status.self, Build.self, BuildAll.self, Serve.self, InstallService.self, Log_.self]
     )
 
+    private enum Timeout {
+        /// Grace period after SIGTERM before SIGKILL (microseconds)
+        static let killGrace: useconds_t = 500_000
+        /// Max seconds to wait for WDA ready after launch
+        static let readyWait = 30
+        /// Seconds between restart attempts after clean exit
+        static let restartClean: UInt32 = 2
+        /// Seconds between restart attempts after failure
+        static let restartFailed: UInt32 = 5
+        /// xcodebuild build timeout (seconds)
+        static let build: TimeInterval = 300
+    }
+
     // MARK: - Shared helpers
 
     static var config: IDBConfig { IDBConfig.load() }
@@ -30,7 +43,7 @@ struct WDA: ParsableCommand {
     static func killWDA(_ name: String) {
         if let pid = wdaPID(name) {
             kill(pid, SIGTERM)
-            usleep(500_000)
+            usleep(Timeout.killGrace)
             if kill(pid, 0) == 0 { kill(pid, SIGKILL) }
         }
         // Also kill any xcodebuild targeting this device
@@ -70,7 +83,7 @@ struct WDA: ParsableCommand {
         return process
     }
 
-    static func waitForReady(name: String, dev: Device, timeout: Int = 30) -> String? {
+    static func waitForReady(name: String, dev: Device, timeout: Int = Timeout.readyWait) -> String? {
         for _ in 0..<timeout {
             sleep(1)
             // Check log for ServerURL
@@ -213,7 +226,7 @@ struct WDA: ParsableCommand {
                     -destination 'generic/platform=iOS' \
                     -allowProvisioningUpdates \
                     -derivedDataPath \(ddPath)
-                """, timeout: 300)
+                """, timeout: Timeout.build)
 
             if buildResult.code != 0 {
                 print("BUILD FAILED")
@@ -313,7 +326,7 @@ struct WDA: ParsableCommand {
                 } catch {
                     fputs("[serve] Failed to launch xcodebuild: \(error)\n", stderr)
                     failures += 1
-                    sleep(5)
+                    sleep(Timeout.restartFailed)
                     continue
                 }
 
@@ -336,12 +349,12 @@ struct WDA: ParsableCommand {
 
                 if code == 0 {
                     // Clean exit (test suite finished normally) — restart
-                    fputs("[serve] Clean exit, restarting in 2s...\n", stderr)
-                    sleep(2)
+                    fputs("[serve] Clean exit, restarting in \(Timeout.restartClean)s...\n", stderr)
+                    sleep(Timeout.restartClean)
                 } else {
                     failures += 1
-                    fputs("[serve] Failure \(failures)/\(maxFailures), restarting in 5s...\n", stderr)
-                    sleep(5)
+                    fputs("[serve] Failure \(failures)/\(maxFailures), restarting in \(Timeout.restartFailed)s...\n", stderr)
+                    sleep(Timeout.restartFailed)
                 }
             }
 

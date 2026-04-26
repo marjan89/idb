@@ -1,6 +1,69 @@
 import AppKit
 import Foundation
 
+// MARK: - Constants
+
+private enum Mirror {
+    /// Fraction of window width — mouse must move this far to distinguish tap from drag
+    static let tapThresholdRatio: CGFloat = 0.015
+    /// Fraction of window width — minimum drag movement to trigger a velocity swipe pulse
+    static let dragThresholdRatio: CGFloat = 0.03
+    /// Retina scale factor estimate when MJPEG frame size is unknown
+    static let defaultScaleFactor: CGFloat = 3
+    /// Screen edge padding for initial window placement (points)
+    static let windowEdgePadding: CGFloat = 20
+    /// Minimum window dimensions
+    static let minWindowSize = NSSize(width: 150, height: 300)
+    /// Fallback screen size when NSScreen.main is nil
+    static let fallbackScreen = NSRect(x: 0, y: 0, width: 1440, height: 900)
+
+    enum Scroll {
+        /// Minimum seconds between scroll events
+        static let throttle: TimeInterval = 0.15
+        /// Minimum scrollingDelta to register
+        static let deadzone: CGFloat = 2
+        /// Swipe distance in WDA points per scroll tick
+        static let distance: CGFloat = 150
+        /// Swipe duration for scroll gestures
+        static let duration: Double = 0.2
+        /// Screen edge margin for scroll swipe clamping
+        static let edgeMargin: CGFloat = 10
+    }
+
+    enum Pinch {
+        static let zoomInScale: Double = 1.5
+        static let zoomOutScale: Double = 0.67
+    }
+
+    enum Drag {
+        /// Baseline mouse speed (px/s) — speeds above this get amplified
+        static let baseSpeed: CGFloat = 300
+        /// Maximum speed multiplier
+        static let maxMultiplier: CGFloat = 4.0
+        /// Minimum swipe duration (fast drag)
+        static let minDuration: Double = 0.01
+        /// Duration divisor — lower = shorter duration at high speed
+        static let durationBase: Double = 0.05
+    }
+
+    enum Gesture {
+        /// Duration for iOS back swipe (left-edge)
+        static let backDuration: Double = 0.3
+        /// Duration for task switcher swipe
+        static let taskSwitcherDuration: Double = 0.5
+        /// How far across the screen the back swipe goes (fraction)
+        static let backSwipeRatio: CGFloat = 0.5
+        /// Where the task switcher swipe ends (fraction from top)
+        static let taskSwitcherEndRatio: CGFloat = 0.4
+        /// Start offset from bottom for task switcher
+        static let taskSwitcherBottomOffset: CGFloat = 5
+        /// Swipe duration for non-drag mouse release
+        static let releaseDuration: Double = 0.2
+    }
+}
+
+// MARK: - View
+
 class MirrorView: NSView {
     var image: NSImage? { didSet { needsDisplay = true } }
     override var isFlipped: Bool { true }
@@ -15,25 +78,25 @@ class MirrorView: NSView {
     }
 }
 
-/// Interactive mirror window — handles mouse, scroll, keyboard input
+// MARK: - Window
+
 class MirrorWindow: NSWindow {
     private let wda: MirrorWDABridge
     let mirrorView = MirrorView()
     private let wdaSize: (width: CGFloat, height: CGFloat)
     private var lastScrollTime: TimeInterval = 0
-    private let scrollThrottle: TimeInterval = 0.15
 
     init(wda: MirrorWDABridge, wdaSize: (CGFloat, CGFloat), imageSize: NSSize?, scale: CGFloat) {
         self.wda = wda
         self.wdaSize = wdaSize
 
-        let baseW: CGFloat = imageSize?.width ?? wdaSize.0 * 3
-        let baseH: CGFloat = imageSize?.height ?? wdaSize.1 * 3
+        let baseW = imageSize?.width ?? wdaSize.0 * Mirror.defaultScaleFactor
+        let baseH = imageSize?.height ?? wdaSize.1 * Mirror.defaultScaleFactor
         let winW = baseW * scale
         let winH = baseH * scale
 
-        let screenFrame = NSScreen.main?.visibleFrame ?? NSRect(x: 0, y: 0, width: 1440, height: 900)
-        let x = screenFrame.maxX - winW - 20
+        let screenFrame = NSScreen.main?.visibleFrame ?? Mirror.fallbackScreen
+        let x = screenFrame.maxX - winW - Mirror.windowEdgePadding
         let y = screenFrame.midY - winH / 2
 
         super.init(contentRect: NSRect(x: x, y: y, width: winW, height: winH),
@@ -43,7 +106,7 @@ class MirrorWindow: NSWindow {
         title = "idb mirror"
         contentView = mirrorView
         mirrorView.frame = NSRect(x: 0, y: 0, width: winW, height: winH)
-        minSize = NSSize(width: 150, height: 300)
+        minSize = Mirror.minWindowSize
         aspectRatio = NSSize(width: baseW, height: baseH)
         makeKeyAndOrderFront(nil)
     }
@@ -63,8 +126,8 @@ class MirrorWindow: NSWindow {
     private var prevDragPoint: NSPoint?
     private var prevDragTime: TimeInterval = 0
     private var dragging = false
-    private var tapThreshold: CGFloat { mirrorView.bounds.width * 0.015 }
-    private var dragThreshold: CGFloat { mirrorView.bounds.width * 0.03 }
+    private var tapThreshold: CGFloat { mirrorView.bounds.width * Mirror.tapThresholdRatio }
+    private var dragThreshold: CGFloat { mirrorView.bounds.width * Mirror.dragThresholdRatio }
 
     override func mouseDown(with event: NSEvent) {
         let pt = mirrorView.convert(event.locationInWindow, from: nil)
@@ -84,18 +147,18 @@ class MirrorWindow: NSWindow {
 
         dragging = true
         let dt = now - prevDragTime
-        let speed = dt > 0 ? dist / CGFloat(dt) : 500
+        let speed = dt > 0 ? dist / CGFloat(dt) : Mirror.Drag.baseSpeed
 
         let (fx, fy) = toWDA(prev)
         let (tx, ty) = toWDA(pt)
         let wdaDx = tx - fx, wdaDy = ty - fy
         let wdaDist = sqrt(wdaDx * wdaDx + wdaDy * wdaDy)
-        let mult = min(max(speed / 300, 1.0), 4.0)
+        let mult = min(max(speed / Mirror.Drag.baseSpeed, 1.0), Mirror.Drag.maxMultiplier)
         let nx = wdaDx / wdaDist, ny = wdaDy / wdaDist
         let endX = fx + nx * wdaDist * mult
         let endY = fy + ny * wdaDist * mult
 
-        wda.swipe(fx, fy, endX, endY, max(0.05 / mult, 0.01))
+        wda.swipe(fx, fy, endX, endY, max(Mirror.Drag.durationBase / mult, Mirror.Drag.minDuration))
         prevDragPoint = pt
         prevDragTime = now
     }
@@ -111,46 +174,48 @@ class MirrorWindow: NSWindow {
             } else {
                 let (fx, fy) = toWDA(start)
                 let (tx, ty) = toWDA(end)
-                wda.swipe(fx, fy, tx, ty, 0.2)
+                wda.swipe(fx, fy, tx, ty, Mirror.Gesture.releaseDuration)
             }
         }
         mouseDownPoint = nil; prevDragPoint = nil; dragging = false
     }
 
-    // MARK: - Scroll
+    // MARK: - Scroll & Pinch
 
     override func scrollWheel(with event: NSEvent) {
         if event.momentumPhase != [] { return }
         let now = ProcessInfo.processInfo.systemUptime
-        guard now - lastScrollTime >= scrollThrottle else { return }
+        guard now - lastScrollTime >= Mirror.Scroll.throttle else { return }
 
         let loc = mirrorView.convert(event.locationInWindow, from: nil)
         let (cx, cy) = toWDA(loc)
 
-        // Option+scroll = pinch (zoom)
+        // Option+scroll = pinch
         if event.modifierFlags.contains(.option) {
-            guard abs(event.scrollingDeltaY) > 2 else { return }
+            guard abs(event.scrollingDeltaY) > Mirror.Scroll.deadzone else { return }
             lastScrollTime = now
-            let scale = event.scrollingDeltaY > 0 ? 1.5 : 0.67
+            let scale = event.scrollingDeltaY > 0 ? Mirror.Pinch.zoomInScale : Mirror.Pinch.zoomOutScale
             wda.pinch(cx, cy, scale: scale)
             return
         }
 
-        // Plain scroll
-        let d: CGFloat = 150
-        if abs(event.scrollingDeltaY) > 2 {
+        let d = Mirror.Scroll.distance
+        let edge = Mirror.Scroll.edgeMargin
+        let dur = Mirror.Scroll.duration
+
+        if abs(event.scrollingDeltaY) > Mirror.Scroll.deadzone {
             lastScrollTime = now
             if event.scrollingDeltaY > 0 {
-                wda.swipe(cx, max(cy - d/2, 10), cx, min(cy + d/2, wdaSize.1 - 10), 0.2)
+                wda.swipe(cx, max(cy - d/2, edge), cx, min(cy + d/2, wdaSize.1 - edge), dur)
             } else {
-                wda.swipe(cx, min(cy + d/2, wdaSize.1 - 10), cx, max(cy - d/2, 10), 0.2)
+                wda.swipe(cx, min(cy + d/2, wdaSize.1 - edge), cx, max(cy - d/2, edge), dur)
             }
-        } else if abs(event.scrollingDeltaX) > 2 {
+        } else if abs(event.scrollingDeltaX) > Mirror.Scroll.deadzone {
             lastScrollTime = now
             if event.scrollingDeltaX > 0 {
-                wda.swipe(max(cx - d/2, 10), cy, min(cx + d/2, wdaSize.0 - 10), cy, 0.2)
+                wda.swipe(max(cx - d/2, edge), cy, min(cx + d/2, wdaSize.0 - edge), cy, dur)
             } else {
-                wda.swipe(min(cx + d/2, wdaSize.0 - 10), cy, max(cx - d/2, 10), cy, 0.2)
+                wda.swipe(min(cx + d/2, wdaSize.0 - edge), cy, max(cx - d/2, edge), cy, dur)
             }
         }
     }
@@ -166,7 +231,9 @@ class MirrorWindow: NSWindow {
         let kb = IDBConfig.load().keybindings
 
         if matches(event, kb.back) {
-            wda.swipe(0, wdaSize.1 / 2, wdaSize.0 * 0.5, wdaSize.1 / 2, 0.3)
+            wda.swipe(0, wdaSize.1 / 2,
+                      wdaSize.0 * Mirror.Gesture.backSwipeRatio, wdaSize.1 / 2,
+                      Mirror.Gesture.backDuration)
             return
         }
         if matches(event, kb.home) {
@@ -174,7 +241,9 @@ class MirrorWindow: NSWindow {
             return
         }
         if matches(event, kb.taskSwitcher) {
-            wda.swipe(wdaSize.0 / 2, wdaSize.1 - 5, wdaSize.0 / 2, wdaSize.1 * 0.4, 0.5)
+            wda.swipe(wdaSize.0 / 2, wdaSize.1 - Mirror.Gesture.taskSwitcherBottomOffset,
+                      wdaSize.0 / 2, wdaSize.1 * Mirror.Gesture.taskSwitcherEndRatio,
+                      Mirror.Gesture.taskSwitcherDuration)
             return
         }
 
@@ -188,42 +257,28 @@ class MirrorWindow: NSWindow {
         }
     }
 
-    /// Match a key event against a binding string like "esc", "tab", "opt+backspace", "cmd+shift+h"
+    /// Match a key event against a binding string like "esc", "opt+backspace"
     private func matches(_ event: NSEvent, _ binding: String) -> Bool {
         let parts = binding.lowercased().split(separator: "+").map(String.init)
         let key = parts.last ?? ""
         let mods = Set(parts.dropLast())
 
-        // Check modifiers
         let needsOpt = mods.contains("opt") || mods.contains("option") || mods.contains("alt")
         let needsShift = mods.contains("shift")
         let needsCtrl = mods.contains("ctrl") || mods.contains("control")
 
-        let hasOpt = event.modifierFlags.contains(.option)
-        let hasShift = event.modifierFlags.contains(.shift)
-        let hasCtrl = event.modifierFlags.contains(.control)
+        guard needsOpt == event.modifierFlags.contains(.option),
+              needsShift == event.modifierFlags.contains(.shift),
+              needsCtrl == event.modifierFlags.contains(.control) else { return false }
 
-        guard needsOpt == hasOpt, needsShift == hasShift, needsCtrl == hasCtrl else { return false }
-
-        // Check key
         let keyCodeMap: [String: UInt16] = [
-            "esc": 53, "escape": 53,
-            "backspace": 51, "delete": 51,
-            "tab": 48,
-            "return": 36, "enter": 36,
-            "space": 49,
+            "esc": 53, "escape": 53, "backspace": 51, "delete": 51,
+            "tab": 48, "return": 36, "enter": 36, "space": 49,
             "left": 123, "right": 124, "down": 125, "up": 126,
         ]
 
-        if let expected = keyCodeMap[key] {
-            return event.keyCode == expected
-        }
-
-        // Single character key
-        if key.count == 1 {
-            return event.charactersIgnoringModifiers?.lowercased() == key
-        }
-
+        if let expected = keyCodeMap[key] { return event.keyCode == expected }
+        if key.count == 1 { return event.charactersIgnoringModifiers?.lowercased() == key }
         return false
     }
 
