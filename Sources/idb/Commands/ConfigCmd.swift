@@ -9,7 +9,7 @@ struct Config_: ParsableCommand {
     )
 
     struct Init_: ParsableCommand {
-        static let configuration = CommandConfiguration(commandName: "init", abstract: "Create config with defaults")
+        static let configuration = CommandConfiguration(commandName: "init", abstract: "Create config with defaults and documentation")
 
         @Flag(help: "Overwrite existing config")
         var force = false
@@ -30,18 +30,15 @@ struct Config_: ParsableCommand {
 
         func run() throws {
             let config = IDBConfig.load()
-            let encoder = JSONEncoder()
-            encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
-            let data = try encoder.encode(config)
-            print(String(data: data, encoding: .utf8) ?? "")
-            print("\nPath: \(IDBConfig.configPath)")
+            print(IDBConfig.generateTOML(from: config))
+            print("\n# Path: \(IDBConfig.configPath)")
         }
     }
 
     struct Set_: ParsableCommand {
         static let configuration = CommandConfiguration(commandName: "set", abstract: "Set a config value")
 
-        @Argument(help: "Key (wdaDir, registryPath, logDir, derivedDataDir, defaultMjpegPort, defaultFastTouchPort)")
+        @Argument(help: "Key (use dotted path for nested: mirror_keybindings.home)")
         var key: String
 
         @Argument(help: "Value")
@@ -50,19 +47,31 @@ struct Config_: ParsableCommand {
         func run() throws {
             var config = IDBConfig.load()
             switch key {
-            case "wdaDir": config.wdaDir = value
-            case "registryPath": config.registryPath = value
-            case "logDir": config.logDir = value
-            case "derivedDataDir": config.derivedDataDir = value
-            case "defaultMjpegPort":
+            case "wda_dir": config.wdaDir = value
+            case "registry_path": config.registryPath = value
+            case "log_dir": config.logDir = value
+            case "derived_data_dir": config.derivedDataDir = value
+            case "default_mjpeg_port":
                 guard let v = Int(value) else { print("Invalid port"); throw ExitCode.failure }
                 config.defaultMjpegPort = v
-            case "defaultFastTouchPort":
+            case "default_fast_touch_port":
                 guard let v = Int(value) else { print("Invalid port"); throw ExitCode.failure }
                 config.defaultFastTouchPort = v
+            case "mirror_keybindings.home":
+                config.mirrorKeybindings.home = value
+            case "mirror_keybindings.back":
+                config.mirrorKeybindings.back = value
+            case "mirror_keybindings.task_switcher":
+                config.mirrorKeybindings.taskSwitcher = value
             default:
                 print("Unknown key: \(key)")
-                print("Valid keys: wdaDir, registryPath, logDir, derivedDataDir, defaultMjpegPort, defaultFastTouchPort")
+                print("""
+                Valid keys:
+                  wda_dir, registry_path, log_dir, derived_data_dir,
+                  default_mjpeg_port, default_fast_touch_port,
+                  mirror_keybindings.home, mirror_keybindings.back,
+                  mirror_keybindings.task_switcher
+                """)
                 throw ExitCode.failure
             }
             try config.save()
