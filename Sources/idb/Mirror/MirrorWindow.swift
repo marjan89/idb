@@ -222,25 +222,29 @@ class MirrorWindow: NSWindow {
 
     // MARK: - Keyboard
 
-    override func keyDown(with event: NSEvent) {
-        if event.modifierFlags.contains(.command) {
-            switch event.charactersIgnoringModifiers {
-            case "q": NSApp.terminate(nil)
-            case "v": // Cmd+V — push Mac clipboard to iPhone
-                if let text = NSPasteboard.general.string(forType: .string), !text.isEmpty {
-                    wda.setPasteboard(text)
-                    fputs("[mirror] Pasted to device (\(text.count) chars)\n", stderr)
-                }
-            case "c": // Cmd+C — pull iPhone clipboard to Mac
-                if let text = wda.getPasteboard(), !text.isEmpty {
-                    NSPasteboard.general.clearContents()
-                    NSPasteboard.general.setString(text, forType: .string)
-                    fputs("[mirror] Copied from device: \(String(text.prefix(60)))\n", stderr)
-                }
-            default: break
+    override func performKeyEquivalent(with event: NSEvent) -> Bool {
+        guard event.modifierFlags.contains(.command) else { return super.performKeyEquivalent(with: event) }
+        switch event.charactersIgnoringModifiers {
+        case "q": NSApp.terminate(nil); return true
+        case "v":
+            if let text = NSPasteboard.general.string(forType: .string), !text.isEmpty {
+                wda.setPasteboard(text)
+                fputs("[mirror] Pasted to device (\(text.count) chars)\n", stderr)
             }
-            return
+            return true
+        case "c":
+            if let text = wda.getPasteboard(), !text.isEmpty {
+                NSPasteboard.general.clearContents()
+                NSPasteboard.general.setString(text, forType: .string)
+                fputs("[mirror] Copied from device: \(String(text.prefix(60)))\n", stderr)
+            }
+            return true
+        default: return super.performKeyEquivalent(with: event)
         }
+    }
+
+    override func keyDown(with event: NSEvent) {
+        if event.modifierFlags.contains(.command) { return }
 
         let kb = IDBConfig.load().keybindings
 
