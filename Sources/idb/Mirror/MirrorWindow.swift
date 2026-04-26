@@ -152,9 +152,14 @@ class MirrorWindow: NSWindow {
             if event.charactersIgnoringModifiers == "q" { NSApp.terminate(nil) }
             return
         }
+        // Option+Backspace = back
+        if event.keyCode == 51 && event.modifierFlags.contains(.option) {
+            wda.swipe(0, wdaSize.1 / 2, wdaSize.0 * 0.5, wdaSize.1 / 2, 0.3)
+            return
+        }
         switch event.keyCode {
         case 53: wda.pressButton("home")
-        case 51: wda.swipe(0, wdaSize.1 / 2, wdaSize.0 * 0.5, wdaSize.1 / 2, 0.3)
+        case 51: wda.typeKeys([String(UnicodeScalar(8))])  // plain backspace = delete key
         case 48: wda.swipe(wdaSize.0 / 2, wdaSize.1 - 5, wdaSize.0 / 2, wdaSize.1 * 0.4, 0.5)
         case 36: wda.typeKeys(["\n"])
         default:
