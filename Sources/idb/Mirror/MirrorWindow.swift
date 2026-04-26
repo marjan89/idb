@@ -152,21 +152,69 @@ class MirrorWindow: NSWindow {
             if event.charactersIgnoringModifiers == "q" { NSApp.terminate(nil) }
             return
         }
-        // Option+Backspace = back
-        if event.keyCode == 51 && event.modifierFlags.contains(.option) {
+
+        let kb = IDBConfig.load().keybindings
+
+        if matches(event, kb.back) {
             wda.swipe(0, wdaSize.1 / 2, wdaSize.0 * 0.5, wdaSize.1 / 2, 0.3)
             return
         }
+        if matches(event, kb.home) {
+            wda.pressButton("home")
+            return
+        }
+        if matches(event, kb.taskSwitcher) {
+            wda.swipe(wdaSize.0 / 2, wdaSize.1 - 5, wdaSize.0 / 2, wdaSize.1 * 0.4, 0.5)
+            return
+        }
+
         switch event.keyCode {
-        case 53: wda.pressButton("home")
-        case 51: wda.typeKeys([String(UnicodeScalar(8))])  // plain backspace = delete key
-        case 48: wda.swipe(wdaSize.0 / 2, wdaSize.1 - 5, wdaSize.0 / 2, wdaSize.1 * 0.4, 0.5)
+        case 51: wda.typeKeys([String(UnicodeScalar(8))])
         case 36: wda.typeKeys(["\n"])
         default:
             if let chars = event.characters, !chars.isEmpty {
                 wda.typeKeys(chars.map { String($0) })
             }
         }
+    }
+
+    /// Match a key event against a binding string like "esc", "tab", "opt+backspace", "cmd+shift+h"
+    private func matches(_ event: NSEvent, _ binding: String) -> Bool {
+        let parts = binding.lowercased().split(separator: "+").map(String.init)
+        let key = parts.last ?? ""
+        let mods = Set(parts.dropLast())
+
+        // Check modifiers
+        let needsOpt = mods.contains("opt") || mods.contains("option") || mods.contains("alt")
+        let needsShift = mods.contains("shift")
+        let needsCtrl = mods.contains("ctrl") || mods.contains("control")
+
+        let hasOpt = event.modifierFlags.contains(.option)
+        let hasShift = event.modifierFlags.contains(.shift)
+        let hasCtrl = event.modifierFlags.contains(.control)
+
+        guard needsOpt == hasOpt, needsShift == hasShift, needsCtrl == hasCtrl else { return false }
+
+        // Check key
+        let keyCodeMap: [String: UInt16] = [
+            "esc": 53, "escape": 53,
+            "backspace": 51, "delete": 51,
+            "tab": 48,
+            "return": 36, "enter": 36,
+            "space": 49,
+            "left": 123, "right": 124, "down": 125, "up": 126,
+        ]
+
+        if let expected = keyCodeMap[key] {
+            return event.keyCode == expected
+        }
+
+        // Single character key
+        if key.count == 1 {
+            return event.charactersIgnoringModifiers?.lowercased() == key
+        }
+
+        return false
     }
 
     override var acceptsFirstResponder: Bool { true }

@@ -1,6 +1,19 @@
 import Foundation
 
 /// idb configuration — loaded from ~/.config/idb/config.json
+/// Mirror keybinding — maps a keyCode + optional modifier to an action
+struct MirrorKeybinding: Codable {
+    var home: String        // "esc"
+    var back: String        // "opt+backspace"
+    var taskSwitcher: String // "tab"
+
+    static let defaults = MirrorKeybinding(
+        home: "esc",
+        back: "opt+backspace",
+        taskSwitcher: "tab"
+    )
+}
+
 struct IDBConfig: Codable {
     var wdaDir: String
     var registryPath: String
@@ -8,9 +21,12 @@ struct IDBConfig: Codable {
     var derivedDataDir: String
     var defaultMjpegPort: Int
     var defaultFastTouchPort: Int
+    var mirrorKeybindings: MirrorKeybinding?
 
     static let configDir = NSString(string: "~/.config/idb").expandingTildeInPath
     static let configPath = NSString(string: "~/.config/idb/config.json").expandingTildeInPath
+
+    var keybindings: MirrorKeybinding { mirrorKeybindings ?? .defaults }
 
     static let defaults = IDBConfig(
         wdaDir: "~/WebDriverAgent",
@@ -18,7 +34,8 @@ struct IDBConfig: Codable {
         logDir: "/tmp",
         derivedDataDir: "/tmp",
         defaultMjpegPort: 9100,
-        defaultFastTouchPort: 9200
+        defaultFastTouchPort: 9200,
+        mirrorKeybindings: nil
     )
 
     /// Load config — falls back to defaults for missing keys
