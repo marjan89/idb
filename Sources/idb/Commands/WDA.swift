@@ -79,6 +79,7 @@ struct WDA: ParsableCommand {
         logHandle.seekToEndOfFile()
         process.standardOutput = logHandle
         process.standardError = logHandle
+        process.standardInput = FileHandle.nullDevice
 
         return process
     }
@@ -110,20 +111,15 @@ struct WDA: ParsableCommand {
         func run() throws {
             let (name, dev) = try DeviceRegistry.resolve(device)
 
-            // Kill existing
             WDA.killWDA(name)
-
-            // Clear log
             FileManager.default.createFile(atPath: WDA.logPath(name), contents: nil)
 
             print("Starting WDA on \(name) (port \(dev.port))...")
             let process = WDA.launchXcodebuild(name: name, dev: dev, wdaDir: wdaDir)
             try process.run()
 
-            // Save PID
             try "\(process.processIdentifier)".write(toFile: WDA.pidPath(name), atomically: true, encoding: .utf8)
 
-            // Wait for ready
             if let url = WDA.waitForReady(name: name, dev: dev) {
                 print("WDA ready at \(url)")
             } else {

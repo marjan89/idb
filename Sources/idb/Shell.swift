@@ -11,6 +11,7 @@ func shell(_ command: String, timeout: TimeInterval = 30) -> (code: Int32, out: 
     let errPipe = Pipe()
     process.standardOutput = outPipe
     process.standardError = errPipe
+    process.standardInput = FileHandle.nullDevice
 
     do {
         try process.run()

@@ -67,6 +67,7 @@ private enum Mirror {
 class MirrorView: NSView {
     var image: NSImage? { didSet { needsDisplay = true } }
     override var isFlipped: Bool { true }
+    override var acceptsFirstResponder: Bool { true }
 
     override func draw(_ dirtyRect: NSRect) {
         guard let image = image else {
@@ -75,6 +76,37 @@ class MirrorView: NSView {
             return
         }
         image.draw(in: bounds)
+    }
+
+    override func performKeyEquivalent(with event: NSEvent) -> Bool {
+        if event.modifierFlags.contains(.command),
+           let chars = event.charactersIgnoringModifiers,
+           chars == "c" || chars == "v" || chars == "q" {
+            (window as? MirrorWindow)?.handleKeyDown(event)
+            return true
+        }
+        return super.performKeyEquivalent(with: event)
+    }
+
+    override func keyDown(with event: NSEvent) {
+        // Debug: log every keyDown to /tmp/mirror-keys.log
+        let ts = ISO8601DateFormatter().string(from: Date())
+        let flags = event.modifierFlags.rawValue
+        let chars = event.characters ?? "<nil>"
+        let charsIM = event.charactersIgnoringModifiers ?? "<nil>"
+        let line = "[\(ts)] keyCode=\(event.keyCode) chars=\"\(chars)\" charsIM=\"\(charsIM)\" flags=0x\(String(flags, radix: 16))\n"
+        if let data = line.data(using: .utf8) {
+            if FileManager.default.fileExists(atPath: "/tmp/mirror-keys.log") {
+                if let fh = FileHandle(forWritingAtPath: "/tmp/mirror-keys.log") {
+                    fh.seekToEndOfFile()
+                    fh.write(data)
+                    fh.closeFile()
+                }
+            } else {
+                FileManager.default.createFile(atPath: "/tmp/mirror-keys.log", contents: data)
+            }
+        }
+        (window as? MirrorWindow)?.handleKeyDown(event)
     }
 }
 
@@ -222,29 +254,43 @@ class MirrorWindow: NSWindow {
 
     // MARK: - Keyboard
 
-    override func performKeyEquivalent(with event: NSEvent) -> Bool {
-        guard event.modifierFlags.contains(.command) else { return super.performKeyEquivalent(with: event) }
-        switch event.charactersIgnoringModifiers {
-        case "q": NSApp.terminate(nil); return true
-        case "v":
-            if let text = NSPasteboard.general.string(forType: .string), !text.isEmpty {
-                wda.setPasteboard(text)
-                fputs("[mirror] Pasted to device (\(text.count) chars)\n", stderr)
-            }
-            return true
-        case "c":
-            if let text = wda.getPasteboard(), !text.isEmpty {
-                NSPasteboard.general.clearContents()
-                NSPasteboard.general.setString(text, forType: .string)
-                fputs("[mirror] Copied from device: \(String(text.prefix(60)))\n", stderr)
-            }
-            return true
-        default: return super.performKeyEquivalent(with: event)
+    func installMenu() {
+        let mainMenu = NSMenu()
+
+        let appMenu = NSMenu()
+        appMenu.addItem(withTitle: "Quit", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
+        let appItem = NSMenuItem()
+        appItem.submenu = appMenu
+        mainMenu.addItem(appItem)
+
+        NSApp.mainMenu = mainMenu
+    }
+
+    private func copyFromDevice() {
+        if let text = wda.getPasteboard(), !text.isEmpty {
+            NSPasteboard.general.clearContents()
+            NSPasteboard.general.setString(text, forType: .string)
+            fputs("[mirror] Copied from device: \(String(text.prefix(60)))\n", stderr)
         }
     }
 
-    override func keyDown(with event: NSEvent) {
-        if event.modifierFlags.contains(.command) { return }
+    private func pasteToDevice() {
+        if let text = NSPasteboard.general.string(forType: .string), !text.isEmpty {
+            wda.setPasteboard(text)
+            wda.typeKeys(text.map { String($0) })
+            fputs("[mirror] Pasted to device (\(text.count) chars)\n", stderr)
+        }
+    }
+
+    func handleKeyDown(_ event: NSEvent) {
+        // Cmd+C = copy from device, Cmd+V = paste to device
+        if event.modifierFlags.contains(.command) {
+            switch event.charactersIgnoringModifiers {
+            case "c": copyFromDevice(); return
+            case "v": pasteToDevice(); return
+            default: return
+            }
+        }
 
         let kb = IDBConfig.load().keybindings
 

@@ -123,6 +123,7 @@ private class MirrorAppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         let win = MirrorWindow(wda: bridge, wdaSize: wdaSize, imageSize: imageSize, scale: scale)
+        win.installMenu()
         self.window = win
         stream.onFrame = { [weak win] image in win?.updateImage(image) }
         if let img = stream.latestImage { win.updateImage(img) }
