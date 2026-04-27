@@ -81,7 +81,7 @@ class MirrorView: NSView {
     override func performKeyEquivalent(with event: NSEvent) -> Bool {
         if event.modifierFlags.contains(.command),
            let chars = event.charactersIgnoringModifiers,
-           chars == "c" || chars == "v" || chars == "q" {
+           chars == "c" || chars == "v" {
             (window as? MirrorWindow)?.handleKeyDown(event)
             return true
         }
@@ -161,7 +161,13 @@ class MirrorWindow: NSWindow {
     private var tapThreshold: CGFloat { mirrorView.bounds.width * Mirror.tapThresholdRatio }
     private var dragThreshold: CGFloat { mirrorView.bounds.width * Mirror.dragThresholdRatio }
 
+    private func isInMirrorView(_ event: NSEvent) -> Bool {
+        let pt = mirrorView.convert(event.locationInWindow, from: nil)
+        return mirrorView.bounds.contains(pt)
+    }
+
     override func mouseDown(with event: NSEvent) {
+        guard isInMirrorView(event) else { return }
         let pt = mirrorView.convert(event.locationInWindow, from: nil)
         mouseDownPoint = pt
         prevDragPoint = pt
@@ -267,10 +273,12 @@ class MirrorWindow: NSWindow {
     }
 
     private func copyFromDevice() {
-        if let text = wda.getPasteboard(), !text.isEmpty {
-            NSPasteboard.general.clearContents()
-            NSPasteboard.general.setString(text, forType: .string)
-            fputs("[mirror] Copied from device: \(String(text.prefix(60)))\n", stderr)
+        wda.getPasteboard { text in
+            DispatchQueue.main.async {
+                NSPasteboard.general.clearContents()
+                NSPasteboard.general.setString(text, forType: .string)
+                fputs("[mirror] Copied from device: \(String(text.prefix(60)))\n", stderr)
+            }
         }
     }
 

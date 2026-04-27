@@ -36,6 +36,9 @@ Do NOT compute ports as offsets (e.g. `wda_port + 1000`). These are independent 
 - WDA's `/source` XML contains unescaped quotes in attribute values — NSXMLParser silently fails. Use line-based regex parsing.
 - `xcrun devicectl` uses CoreDevice UUIDs, `devices.json` uses UDID — these are different identifiers. Discover command shows CoreDevice IDs, not UDID.
 - `xcodebuild build-for-testing` derived data path must match what `test-without-building` expects. Always use `--derived-data` consistently.
+- `build-for-testing` MUST use `-destination id=<UDID>`, NOT `generic/platform=iOS`. The device-specific destination registers the UDID with Apple's provisioning system. Without it, the provisioning profile won't include the device and install fails with `0xe8008012`.
+- xcodebuild (and codesign) calls `readpassphrase()` which opens `/dev/tty` directly, bypassing stdout/stderr redirects. Use `POSIX_SPAWN_SETSID` via `spawnDetached()` in Shell.swift to launch xcodebuild without a controlling terminal. Never use Foundation `Process` for xcodebuild — it leaks "Password:" prompts to the user's terminal.
+- Xcode SDK version must be >= the device's iOS version. If `idb doctor` or `idb wda start` fails with DDI errors, update Xcode. Since Xcode 26, the iOS platform SDK must be downloaded separately via `xcodebuild -downloadPlatform iOS`.
 - MJPEG caps at ~30 FPS (WDA screenshot-based).
 - FastTouch requires the WDA fork with FBFastTouchServer. Without it, HTTP fallback works but at ~300ms per touch.
 

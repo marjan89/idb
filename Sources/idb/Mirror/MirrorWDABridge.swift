@@ -45,15 +45,15 @@ class MirrorWDABridge {
         }
     }
 
-    func getPasteboard() -> String? {
-        var result: String?
-        let sem = DispatchSemaphore(value: 0)
-        cmdQueue.trySubmit("copy") {
-            result = try? self.httpClient.getPasteboard()
-            sem.signal()
+    func getPasteboard(_ completion: @escaping (String) -> Void) {
+        DispatchQueue.global(qos: .userInteractive).async {
+            do {
+                let text = try self.httpClient.getPasteboard()
+                if !text.isEmpty { completion(text) }
+            } catch {
+                fputs("[mirror] getPasteboard failed: \(error)\n", stderr)
+            }
         }
-        sem.wait()
-        return result
     }
 
     func pressButton(_ name: String) {

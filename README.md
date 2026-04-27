@@ -213,7 +213,7 @@ idb app list
 idb mirror [device] [--scale 0.5] [--mjpeg-port 9100] [--touch-port 9200]
 ```
 
-Opens an AppKit window with live MJPEG video and interactive input. Click to tap, drag to swipe, scroll wheel to scroll, ESC for home, Cmd+Q to quit.
+Opens an AppKit window with live MJPEG video and interactive input. Click to tap, drag to swipe, scroll wheel to scroll, Option+scroll to pinch zoom, ESC for home, Cmd+C to copy device clipboard to Mac, Cmd+V to paste Mac clipboard to device (and type it), Cmd+Q to quit.
 
 ### Device logs
 

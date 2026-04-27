@@ -13,6 +13,31 @@ struct Doctor: ParsableCommand {
         issues += check("xcrun devicectl", "xcrun devicectl --version 2>/dev/null || echo 'missing'")
         issues += check("pymobiledevice3", "pymobiledevice3 version 2>/dev/null || echo 'missing'")
 
+        // Check Xcode SDK version vs connected device iOS versions
+        let xcodeVersion = shell("xcodebuild -version 2>/dev/null | head -1")
+        let xcodeVer = xcodeVersion.out.replacingOccurrences(of: "Xcode ", with: "")
+        let sdkResult = shell("xcodebuild -showsdks 2>/dev/null | grep iphoneos | tail -1")
+        let sdkVer = sdkResult.out.components(separatedBy: "iphoneos").last?.trimmingCharacters(in: .whitespaces) ?? xcodeVer
+
+        do {
+            let devices = try DeviceRegistry.load()
+            for (name, dev) in devices.sorted(by: { $0.value.port < $1.value.port }) {
+                // Compare major.minor: SDK must be >= device iOS
+                let sdkParts = sdkVer.split(separator: ".").compactMap { Int($0) }
+                let iosParts = dev.ios.split(separator: ".").compactMap { Int($0) }
+                if sdkParts.count >= 1 && iosParts.count >= 1 {
+                    let sdkMajor = sdkParts[0]
+                    let sdkMinor = sdkParts.count > 1 ? sdkParts[1] : 0
+                    let iosMajor = iosParts[0]
+                    let iosMinor = iosParts.count > 1 ? iosParts[1] : 0
+                    if sdkMajor < iosMajor || (sdkMajor == iosMajor && sdkMinor < iosMinor) {
+                        fail("\(name): iOS \(dev.ios) requires Xcode SDK >= \(iosMajor).\(iosMinor), have \(sdkVer)")
+                        issues += 1
+                    }
+                }
+            }
+        } catch {}
+
         heading("Signing")
         let email = config.signingEmail
         if email.isEmpty {
