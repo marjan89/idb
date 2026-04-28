@@ -174,6 +174,15 @@ idb scroll down
 idb scroll left -d myphone
 ```
 
+### Clipboard
+
+| Command | Description |
+|---------|-------------|
+| `idb copy [-d dev]` | Copy device clipboard to Mac clipboard |
+| `idb paste [-d dev] [--type]` | Paste Mac clipboard to device clipboard |
+
+`--type` also types the pasted text into the focused field.
+
 ### UI inspection
 
 ```bash
@@ -269,13 +278,15 @@ idb (Swift CLI)
  +-- FastTouchClient          Binary TCP protocol for low-latency touch
  |
  +-- Commands/
- |    +-- Devices             list, status, add, remove, discover
+ |    +-- Devices             list, status
+ |    +-- DevicesManage       add, remove, discover
  |    +-- WDA                 start, stop, build, serve, install-service, log
  |    +-- Touch               tap, swipe, type, button (+ DeviceOption, helpers)
  |    +-- Convenience         home, back, scroll
+ |    +-- Clipboard           copy, paste
  |    +-- UI                  UI tree dump
  |    +-- Screenshot          PNG capture
- |    +-- App                 launch, kill, active
+ |    +-- App                 launch, kill, active, install, list
  |    +-- Syslog              device log tailing
  |    +-- Mirror              MJPEG + interactive window
  |    +-- Doctor              system health checks
