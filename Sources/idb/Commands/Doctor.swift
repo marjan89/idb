@@ -70,7 +70,7 @@ struct Doctor: ParsableCommand {
                 print("  \(name): \(dev.model) port=\(dev.port)")
             }
         } catch {
-            fail("Cannot read devices.json: \(error)")
+            fail("Cannot read devices.toml: \(error)")
             issues += 1
         }
 

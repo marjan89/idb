@@ -15,7 +15,7 @@ final class ConfigTests: XCTestCase {
     func testTOMLRoundTrip() throws {
         let config = IDBConfig(
             wdaDir: "/test/wda",
-            registryPath: "/test/devices.json",
+            registryPath: "/test/devices.toml",
             logDir: "/test/logs",
             derivedDataDir: "/test/dd",
             defaultMjpegPort: 9101,

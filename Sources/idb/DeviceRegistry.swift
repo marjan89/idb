@@ -1,4 +1,5 @@
 import Foundation
+import TOMLKit
 
 /// Registered device entry
 struct Device: Codable {
@@ -29,20 +30,21 @@ struct Device: Codable {
     var resolvedFastTouchPort: Int { fastTouchPort ?? IDBConfig.load().defaultFastTouchPort }
 }
 
-/// Reads and manages the device registry (devices.json)
+/// Reads and manages the device registry (devices.toml)
 struct DeviceRegistry {
     static var path: String { NSString(string: IDBConfig.load().registryPath).expandingTildeInPath }
 
     static func load() throws -> [String: Device] {
-        let data = try Data(contentsOf: URL(fileURLWithPath: path))
-        return try JSONDecoder().decode([String: Device].self, from: data)
+        let contents = try String(contentsOfFile: path, encoding: .utf8)
+        return try TOMLDecoder().decode([String: Device].self, from: contents)
     }
 
     static func save(_ devices: [String: Device]) throws {
-        let encoder = JSONEncoder()
-        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
-        let data = try encoder.encode(devices)
-        try data.write(to: URL(fileURLWithPath: path))
+        let url = URL(fileURLWithPath: path)
+        try FileManager.default.createDirectory(
+            at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+        let toml = try TOMLEncoder().encode(devices)
+        try toml.write(to: url, atomically: true, encoding: .utf8)
     }
 
     static func resolve(_ name: String?) throws -> (name: String, device: Device) {

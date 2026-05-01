@@ -61,7 +61,7 @@ Override individual values:
 
 ```bash
 idb config set wdaDir /path/to/WebDriverAgent
-idb config set registryPath ~/.config/idb/devices.json
+idb config set registryPath ~/.config/idb/devices.toml
 ```
 
 ### 2. Enroll devices
@@ -269,9 +269,9 @@ idb (Swift CLI)
  |
  +-- ArgumentParser          Command routing and flag parsing
  |
- +-- DeviceRegistry          devices.json read/write, device resolution
+ +-- DeviceRegistry          devices.toml read/write, device resolution
  |
- +-- IDBConfig               ~/.config/idb/config.json management
+ +-- IDBConfig               ~/.config/idb/config.toml management
  |
  +-- WDAClient               WDA HTTP API (sessions, touch, buttons, screenshots)
  |
@@ -304,8 +304,8 @@ Port layout per device:
 
 | Service | Default | Config key |
 |---------|---------|------------|
-| WDA HTTP | 8100 | `port` in devices.json |
-| MJPEG | 9100 | `mjpeg_port` in devices.json |
-| FastTouch | 9200 | `fast_touch_port` in devices.json |
+| WDA HTTP | 8100 | `port` in devices.toml |
+| MJPEG | 9100 | `mjpeg_port` in devices.toml |
+| FastTouch | 9200 | `fast_touch_port` in devices.toml |
 
 Ports are independent fixed values, not computed as offsets from the WDA port.

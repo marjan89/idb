@@ -30,7 +30,7 @@ struct IDBConfig: Equatable {
 
     static let defaults = IDBConfig(
         wdaDir: "~/WebDriverAgent",
-        registryPath: "~/.config/idb/devices.json",
+        registryPath: "~/.config/idb/devices.toml",
         logDir: "/tmp",
         derivedDataDir: "/tmp",
         defaultMjpegPort: 9100,
@@ -99,7 +99,7 @@ struct IDBConfig: Equatable {
         # Used by: idb wda build
         wda_dir = "\(config.wdaDir)"
 
-        # Path to device registry JSON
+        # Path to device registry TOML
         # Contains enrolled devices with UDID, ports, signing config
         # Managed by: idb devices add/remove
         registry_path = "\(config.registryPath)"
@@ -114,12 +114,12 @@ struct IDBConfig: Equatable {
         derived_data_dir = "\(config.derivedDataDir)"
 
         # Default MJPEG stream port
-        # WDA's MJPEG server port. Override per-device in devices.json (mjpeg_port)
+        # WDA's MJPEG server port. Override per-device in devices.toml (mjpeg_port)
         # Used by: idb mirror
         default_mjpeg_port = \(config.defaultMjpegPort)
 
         # Default FastTouch binary protocol port
-        # FBFastTouchServer TCP port (~5ms touch input). Override per-device in devices.json (fast_touch_port)
+        # FBFastTouchServer TCP port (~5ms touch input). Override per-device in devices.toml (fast_touch_port)
         # Requires WDA fork with FBFastTouchServer. Falls back to HTTP if unavailable.
         # Used by: idb tap, idb swipe, idb mirror
         default_fast_touch_port = \(config.defaultFastTouchPort)
