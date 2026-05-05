@@ -54,7 +54,7 @@ struct Doctor: ParsableCommand {
         }
 
         heading("WDA Fork")
-        let wdaPath = "/Users/Shared/projects/device-tools/WebDriverAgent"
+        let wdaPath = config.resolvedWdaDir
         if FileManager.default.fileExists(atPath: wdaPath + "/WebDriverAgentLib/Utilities/FBFastTouchServer.m") {
             pass("WDA fork with FBFastTouchServer")
         } else {
@@ -77,7 +77,7 @@ struct Doctor: ParsableCommand {
         heading("Device Connectivity")
         let devicesResult = shell("xcrun devicectl list devices 2>/dev/null")
         let connectedCount = devicesResult.out.components(separatedBy: "\n")
-            .filter { $0.contains("connected") && !$0.contains("unavailable") }.count
+            .filter { $0.contains("connected") && !$0.contains("disconnected") && !$0.contains("unavailable") }.count
         if connectedCount > 0 {
             pass("\(connectedCount) device(s) connected")
         } else {

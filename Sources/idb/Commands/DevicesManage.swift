@@ -188,8 +188,9 @@ private func discoverDevices() -> [ConnectedDevice] {
     let udidMap = pymobiledevice3UDIDs()
 
     for line in result.out.components(separatedBy: "\n") {
-        // Skip header lines
-        guard line.contains("connected") || line.contains("unavailable") else { continue }
+        // devicectl states include "connected", "available (paired)", "unavailable",
+        // "disconnected". Don't filter by state — the UUID guard below drops preamble
+        // and the column header; a state allowlist drops legitimate paired devices.
         guard !line.contains("---") else { continue }
 
         let parts = line.split(separator: " ", omittingEmptySubsequences: true).map(String.init)
