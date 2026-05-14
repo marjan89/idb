@@ -14,6 +14,7 @@ struct IDB: ParsableCommand {
             Type_.self,
             Button.self,
             UI.self,
+            Elements.self,
             Screenshot.self,
             App.self,
             Syslog.self,

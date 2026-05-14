@@ -186,9 +186,35 @@ idb scroll left -d myphone
 ### UI inspection
 
 ```bash
-idb ui [-d dev]           # Compact UI tree
+idb ui [-d dev]           # Compact UI tree (full /source snapshot)
 idb ui --raw [-d dev]     # Raw WDA XML
 ```
+
+### Element queries
+
+Targeted element queries via WDA's `/elements` endpoint. Uses class chain or predicate queries instead of a full tree snapshot — works on screens where `idb ui` times out (e.g. MapKit views).
+
+```bash
+# By type + exact label
+idb elements --type Button --label "Links"
+
+# By type + label substring
+idb elements --type StaticText --label-contains "review"
+
+# All elements of a type
+idb elements --type Cell
+
+# Raw class chain query
+idb elements --class-chain '**/XCUIElementTypeButton[`label == "Links"`]'
+
+# NSPredicate query
+idb elements --predicate 'label BEGINSWITH "Add"'
+
+# Raw JSON output
+idb elements --type Button --raw
+```
+
+Output is a compact table with type, label, and center coordinates — suitable for piping into `idb tap`.
 
 ### Screenshots
 
@@ -284,7 +310,8 @@ idb (Swift CLI)
  |    +-- Touch               tap, swipe, type, button (+ DeviceOption, helpers)
  |    +-- Convenience         home, back, scroll
  |    +-- Clipboard           copy, paste
- |    +-- UI                  UI tree dump
+ |    +-- UI                  UI tree dump (full /source snapshot)
+ |    +-- Elements           Targeted element queries (class chain, predicate)
  |    +-- Screenshot          PNG capture
  |    +-- App                 launch, kill, active, install, list
  |    +-- Syslog              device log tailing

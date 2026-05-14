@@ -42,6 +42,7 @@ Do NOT compute ports as offsets (e.g. `wda_port + 1000`). These are independent 
 - MJPEG caps at ~30 FPS (WDA screenshot-based).
 - FastTouch requires the WDA fork with FBFastTouchServer. Without it, HTTP fallback works but at ~300ms per touch.
 - Mirror drag: `dragThresholdRatio` and `MirrorCommandQueue` latest-wins interact — below ~1.5% threshold, micro-swipes flood the queue faster than FastTouch can drain, causing no visible movement. The 3% default is conservative but safe.
+- `idb ui` times out on screens with MapKit — the `/source` endpoint does a full XCUI tree walk that hangs on map elements. Use `idb elements` instead, which queries via WDA `/elements` endpoint with class chain queries (no full-tree snapshot).
 
 ## File layout
 
@@ -57,7 +58,8 @@ Sources/idb/
 │   ├── DevicesManage.swift    # add, remove, discover
 │   ├── WDA.swift              # start, stop, build, log
 │   ├── Touch.swift            # tap, swipe, type, button
-│   ├── UI.swift               # UI tree dump
+│   ├── UI.swift               # UI tree dump (full /source snapshot)
+│   ├── Elements.swift         # targeted element queries (class chain, predicate)
 │   ├── Screenshot.swift
 │   ├── App.swift              # launch, kill, active
 │   ├── Syslog.swift

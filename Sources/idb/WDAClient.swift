@@ -132,6 +132,21 @@ class WDAClient {
         let _ = try syncPOST("/wda/setPasteboard", json: ["content": b64, "contentType": contentType])
     }
 
+    func findElements(using strategy: String, value: String) throws -> [[String: Any]] {
+        guard let sid = sessionID else { throw IDBError.commandFailed("No session") }
+        let _ = try syncPOST("/session/\(sid)/appium/settings", json: [
+            "settings": ["shouldUseCompactResponses": false,
+                         "elementResponseAttributes": "type,label,rect,enabled,displayed"]
+        ])
+        let data = try syncPOST("/session/\(sid)/elements",
+                                json: ["using": strategy, "value": value])
+        let j = try json(data)
+        guard let elements = j["value"] as? [[String: Any]] else {
+            return []
+        }
+        return elements
+    }
+
     func source() throws -> String {
         let data = try syncGET("/source")
         let j = try json(data)
